@@ -11,4 +11,3 @@ keywords = ["functor", "applicative", "monad", "category-theory", "haskell"]
 
 [dependencies]
 higher = "0.2"
-paste = "1.0"
