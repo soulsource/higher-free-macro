@@ -23,10 +23,12 @@ free!(FreeTestFunctor<A>, TestFunctor<FreeTestFunctor<A>>);
 
 In order to get an actual `Monad`, the `Functor` needs to implement `Clone`. It is needed for the `Apply` implementation, which in a Free Monad needs to call `bind()` on `self` for each `Pure` node in the other Free Monad, but `bind()`, as written in the `higher` crate, consumes `self`. The other traits (`Functor`, `Bind`, `Pure`) do not need cloneability, but without `Apply` the type is not `Applicative`, and without `Applicative` it is not `Monad`.
 
+If the lifetime of the result of the Functor's `fmap(f)` depends on the lifetime of the function `f` passed into it, the macro needs to know which lifetime parameter is affected. For instance, in the more involved example below, the macro is called as `free!(<'a>, FreeSaturday<'a, A>, Saturday<'a,FreeSaturday<'a, A>>);`, since `Saturday`'s `fmap(f : F)` has `F : Fn(A)->B + 'a`.
+
 # Why macros though?
  This is mainly because a fully generic implementation seems impossible without [Non-lifetime Binders](https://github.com/rust-lang/rust/issues/108185), which would be needed to express the bound that the type of `Functor<A>::Result<T>` should not depend on `A`. Also, the [Never Type](https://github.com/rust-lang/rust/issues/35121) would be nice to have for a generic implementation.
 
- I've actually done a [proof-of-concept implementation](https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=cea687f9989dd313a993facfd96adac0) of the `Functor` trait for a fully generic `Free` type using Nightly, but didn't follow this further yet, because it doesn't work in the stable toolchain yet.
+ I've actually done a [proof-of-concept implementation](https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=1af5b0970cfe400a9245483f84080b8f) of a fully generic `Free` type using Nightly, but didn't follow this further yet, because it doesn't work in the stable toolchain yet.
 
  # A more involved example
 
@@ -54,6 +56,7 @@ enum Saturday<'a, Next>{
 }
 
 //Saturday is too complex to derive Functor for it (at the moment at least).
+//Note that the lifetime of the continuation function for DrinkABeer depends on the lifetime of f : Fn(Next) -> B + 'a.
 impl<'a, Next : 'a> Functor<'a, Next> for Saturday<'a, Next>{
     type Target<T> = Saturday<'a, T>;
 
@@ -70,7 +73,8 @@ impl<'a, Next : 'a> Functor<'a, Next> for Saturday<'a, Next>{
 }
 
 //Here we create the Free Monad FreeSaturday over the Functor Saturday
-free!(FreeSaturday<'a, A>, Saturday<'a,FreeSaturday<'a, A>>);
+//The result of fmap(f) depends on the lifetime of f, 'a. That's why we pass this to the macro as first parameter.
+free!(<'a>, FreeSaturday<'a, A>, Saturday<'a,FreeSaturday<'a, A>>);
 
 //Helpers, so we don't have to write FreeSaturday::lift_f() all the time
 fn go_to_bar(s : &str) -> FreeSaturday<'_, ()>{ FreeSaturday::lift_f(Saturday::GoToBar { name_of_bar: s, next: () }) }
