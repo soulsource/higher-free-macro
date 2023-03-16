@@ -79,7 +79,7 @@ macro_rules! free {
             Pure($generic),
             Free(Box<$f>)
         }
-        impl<$($other_lifetimes,)* $generic> $name<$($other_lifetimes,)* $generic> where $generic : $a {
+        impl<$($other_lifetimes : $a,)* $generic> $name<$($other_lifetimes,)* $generic> where $generic : $a {
             $v fn lift_f(command : <$f as $crate::higher::Functor<$a, Self>>::Target<$generic>) -> Self{
                 use $crate::higher::Functor;
                 Self::Free(Box::new(command.fmap(|a| Self::Pure(a))))
@@ -94,12 +94,12 @@ macro_rules! free {
             }
         }
     
-        impl<$($other_lifetimes,)* A> $crate::higher::Functor<$a,A> for $name<$($other_lifetimes,)*A> where A : $a {
+        impl<$($other_lifetimes : $a,)* A> $crate::higher::Functor<$a,A> for $name<$($other_lifetimes,)*A> where A : $a {
             type Target<T> = $name<$($other_lifetimes,)* T>;
             fn fmap<B,F>(self, f: F) -> Self::Target<B> 
                 where F: Fn(A) -> B + $a
             {
-                fn __fmap_impl<$($other_lifetimes,)* A, B, F>(s : $name<$($other_lifetimes,)* A>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* B> where A : $a, F: Fn(A) -> B + $a{
+                fn __fmap_impl<$($other_lifetimes : $a,)* A, B, F>(s : $name<$($other_lifetimes,)* A>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* B> where A : $a, F: Fn(A) -> B + $a{
                     use $crate::higher::Functor;
                     match s {
                         $name::Pure(a) => {$name::Pure(f(a))},
@@ -118,7 +118,7 @@ macro_rules! free {
             }
         }
 
-        impl<$($other_lifetimes,)* A> $crate::higher::Apply<$a, A> for $name<$($other_lifetimes,)* A> where A: $a + Clone,{
+        impl<$($other_lifetimes : $a,)* A> $crate::higher::Apply<$a, A> for $name<$($other_lifetimes,)* A> where A: $a + Clone,{
             type Target<T> = $name<$($other_lifetimes,)* T> where T:$a;
             fn apply<B>(
                 self,
@@ -131,13 +131,13 @@ macro_rules! free {
             }
         }
 
-        impl<$($other_lifetimes,)* A> $crate::higher::Bind<$a,A> for $name<$($other_lifetimes,)*A> where A : $a{
+        impl<$($other_lifetimes : $a,)* A> $crate::higher::Bind<$a,A> for $name<$($other_lifetimes,)*A> where A : $a{
             type Target<T> = $name<$($other_lifetimes,)* T>;
             fn bind<B, F>(self, f: F) -> Self::Target<B>
             where
                 F: Fn(A) -> Self::Target<B> + $a,
             {
-                fn __bind_impl<$($other_lifetimes,)* A, B, F>(s : $name<$($other_lifetimes,)*A>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* B> where A : $a, F: Fn(A) -> $name<$($other_lifetimes,)* B> + $a{
+                fn __bind_impl<$($other_lifetimes : $a,)* A, B, F>(s : $name<$($other_lifetimes,)*A>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* B> where A : $a, F: Fn(A) -> $name<$($other_lifetimes,)* B> + $a{
                     use $crate::higher::Functor;
                     match s {
                         $name::Pure(a) => {f(a)},
