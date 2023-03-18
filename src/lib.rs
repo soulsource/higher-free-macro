@@ -9,9 +9,9 @@ macro_rules! free {
             Free(Box<$f>)
         }
         impl<$($other_lifetimes,)* $generic> $name<$($other_lifetimes,)* $generic>{
-            $v fn lift_f(command : <$f as $crate::higher::Functor<Self>>::Target<$generic>) -> Self{
+            $v fn lift_f(functor : <$f as $crate::higher::Functor<Self>>::Target<$generic>) -> Self{
                 use $crate::higher::Functor;
-                Self::Free(Box::new(command.fmap(|a| Self::Pure(a))))
+                Self::Free(Box::new(functor.fmap(|a| Self::Pure(a))))
             }
 
             $v fn retract<'free_macro_reserved_lifetime>(self) -> <$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target<$generic> where $f : $crate::higher::Monad<'free_macro_reserved_lifetime,Self>, <$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target<$generic> : $crate::higher::Pure<$generic> {
@@ -43,7 +43,7 @@ macro_rules! free {
             }
         }
 
-        impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* A> $crate::higher::Apply<'free_macro_reserved_lifetime, A> for $name<$($other_lifetimes,)* A> where A: 'free_macro_reserved_lifetime + Clone,{
+        impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* A> $crate::higher::Apply<'free_macro_reserved_lifetime, A> for $name<$($other_lifetimes,)* A> where A: 'free_macro_reserved_lifetime + Clone, Self : Clone {
             type Target<T> = $name<$($other_lifetimes,)* T> where T:'free_macro_reserved_lifetime;
             fn apply<B>(
                 self,
@@ -80,9 +80,9 @@ macro_rules! free {
             Free(Box<$f>)
         }
         impl<$($other_lifetimes : $a,)* $generic> $name<$($other_lifetimes,)* $generic> where $generic : $a {
-            $v fn lift_f(command : <$f as $crate::higher::Functor<$a, Self>>::Target<$generic>) -> Self{
+            $v fn lift_f(functor : <$f as $crate::higher::Functor<$a, Self>>::Target<$generic>) -> Self{
                 use $crate::higher::Functor;
-                Self::Free(Box::new(command.fmap(|a| Self::Pure(a))))
+                Self::Free(Box::new(functor.fmap(|a| Self::Pure(a))))
             }
 
             $v fn retract(self) -> <$f as $crate::higher::Bind<$a,Self>>::Target<$generic> where $f : $crate::higher::Monad<$a,Self>, <$f as $crate::higher::Bind<$a,Self>>::Target<$generic> : $crate::higher::Pure<$generic> {
@@ -118,7 +118,7 @@ macro_rules! free {
             }
         }
 
-        impl<$($other_lifetimes : $a,)* A> $crate::higher::Apply<$a, A> for $name<$($other_lifetimes,)* A> where A: $a + Clone,{
+        impl<$($other_lifetimes : $a,)* A> $crate::higher::Apply<$a, A> for $name<$($other_lifetimes,)* A> where A: $a + Clone, Self : Clone{
             type Target<T> = $name<$($other_lifetimes,)* T> where T:$a;
             fn apply<B>(
                 self,
