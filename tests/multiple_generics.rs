@@ -63,3 +63,24 @@ fn test_multiple_generics2(){
         _ => unreachable!()
     }
 }
+
+#[test]
+fn test_multiple_generics3(){
+    let m : FreeResult<_, String> = FreeResult::lift_f(Ok(37u32));
+    let f : FreeResult<_, String> = FreeResult::Pure(|x : u32| -> f32 {(x as f32)*0.5f32}).fmap(Into::into);
+    let m = m.apply(f);
+    match m{
+        FreeResult::Free(m) => {
+            match &*m{
+                Ok(k) => {
+                    match k {
+                        FreeResult::Pure(k) => assert_eq!(18.5f32, *k),
+                        FreeResult::Free(_) => unreachable!(),
+                    }
+                }
+                Err(_) => unreachable!(),
+            }
+        },
+        _ => unreachable!()
+    }
+}
