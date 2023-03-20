@@ -1,14 +1,31 @@
+//! A macro that uses the traits from the [higher] crate and generates a Free [`Monad`][higher::Monad] type for a given [`Functor`][higher::Functor].
+//! 
+//! # Free Monad? What is that?
+//! A Free Monad is the left-adjoint to the Forget-Functor from the category of Monads into the category of Endofunctors.
+//! 
+//! This of course doesn't explain what one can do with a Free Monad data type. There are plenty of blog posts and websites that
+//! explore different use cases. A very good explanation is given by Nikolay Yakimov's
+//! [Introduction to Free Monads](https://serokell.io/blog/introduction-to-free-monads).
+//! 
+//! # Why a Macro?
+//! Until [non-lifetime binders](https://github.com/rust-lang/rust/issues/108185) become stable, this seems to be the easiest way.
+//! In generic code, the type signature would be `enum Free<A,F> where F : Functor<Free<A,F>>`. If one now wants to implement the [`Functor`][higher::Functor]
+//! trait for this, it is not really possible to express the `Target<T> = Free<A,F::Target<Free<A,F::Target<...>>>>` generic associated type.
+//! 
+//! See the [blog post about this crate](https://www.grois.info/posts/2023-03/2023-03-11-adventures-with-free-monads-and-higher.xhtml)
+//! for a more detailed explanation.
+
 pub extern crate higher;
 
 #[macro_export]
 macro_rules! free {
-    ($v:vis $name:ident<$($other_lifetimes:lifetime,)* $generic:ident>, $f:ty) => {
+    ($v:vis $name:ident<$($other_lifetimes:lifetime,)* $generic:ident $(,$other_generics:ident)*>, $f:ty) => {
         #[derive(Clone)]
-        $v enum $name<$($other_lifetimes,)* $generic> {
+        $v enum $name<$($other_lifetimes,)* $generic $(,$other_generics)*> {
             Pure($generic),
             Free(Box<$f>)
         }
-        impl<$($other_lifetimes,)* $generic> $name<$($other_lifetimes,)* $generic>{
+        impl<$($other_lifetimes,)* $generic $(,$other_generics)*> $name<$($other_lifetimes,)* $generic $(,$other_generics)*>{
             $v fn lift_f(functor : <$f as $crate::higher::Functor<Self>>::Target<$generic>) -> Self{
                 use $crate::higher::Functor;
                 Self::Free(Box::new(functor.fmap(|a| Self::Pure(a))))
@@ -23,10 +40,10 @@ macro_rules! free {
             }
         }
         
-        impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* A> $crate::higher::Functor<'free_macro_reserved_lifetime,A> for $name<$($other_lifetimes,)* A> {
-            type Target<T> = $name<$($other_lifetimes,)* T>;
-            fn fmap<B,F>(self, f: F) -> Self::Target<B> where F: Fn(A) -> B + 'free_macro_reserved_lifetime{
-                fn __fmap_impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* A, B, F>(s : $name<$($other_lifetimes,)* A>, f: &F) -> $name<$($other_lifetimes,)* B> where F: Fn(A) -> B + 'free_macro_reserved_lifetime{
+        impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* $generic $(,$other_generics)*> $crate::higher::Functor<'free_macro_reserved_lifetime,$generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> {
+            type Target<FreeMacroReservedType> = $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*>;
+            fn fmap<FreeMacroReservedType,FreeMacroReservedType2>(self, f: FreeMacroReservedType2) -> Self::Target<FreeMacroReservedType> where FreeMacroReservedType2: Fn($generic) -> FreeMacroReservedType + 'free_macro_reserved_lifetime{
+                fn __fmap_impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* $generic $(,$other_generics)*, FreeMacroReservedType, FreeMacroReservedType2>(s : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>, f: &FreeMacroReservedType2) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where FreeMacroReservedType2: Fn($generic) -> FreeMacroReservedType + 'free_macro_reserved_lifetime{
                     use $crate::higher::Functor;
                     match s {
                         $name::Pure(a) => {$name::Pure(f(a))},
@@ -37,32 +54,32 @@ macro_rules! free {
             }
         }
 
-        impl<$($other_lifetimes,)* A> $crate::higher::Pure<A> for $name<$($other_lifetimes,)* A> {
-            fn pure(value : A) -> Self {
+        impl<$($other_lifetimes,)* $generic $(,$other_generics)*> $crate::higher::Pure<$generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> {
+            fn pure(value : $generic) -> Self {
                 Self::Pure(value)
             }
         }
 
-        impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* A> $crate::higher::Apply<'free_macro_reserved_lifetime, A> for $name<$($other_lifetimes,)* A> where A: 'free_macro_reserved_lifetime + Clone, Self : Clone {
-            type Target<T> = $name<$($other_lifetimes,)* T> where T:'free_macro_reserved_lifetime;
-            fn apply<B>(
+        impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* $generic $(,$other_generics)*> $crate::higher::Apply<'free_macro_reserved_lifetime, $generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic: 'free_macro_reserved_lifetime + Clone, Self : Clone {
+            type Target<FreeMacroReservedType> = $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where FreeMacroReservedType:'free_macro_reserved_lifetime;
+            fn apply<FreeMacroReservedType>(
                 self,
-                f: <Self as $crate::higher::Apply<'free_macro_reserved_lifetime, A>>::Target<$crate::higher::apply::ApplyFn<'free_macro_reserved_lifetime, A, B>>,
-            ) -> <Self as $crate::higher::Apply<'free_macro_reserved_lifetime, A>>::Target<B>
+                f: <Self as $crate::higher::Apply<'free_macro_reserved_lifetime, $generic>>::Target<$crate::higher::apply::ApplyFn<'free_macro_reserved_lifetime, $generic, FreeMacroReservedType>>,
+            ) -> <Self as $crate::higher::Apply<'free_macro_reserved_lifetime, $generic>>::Target<FreeMacroReservedType>
             where
-                B: 'free_macro_reserved_lifetime,
+                FreeMacroReservedType: 'free_macro_reserved_lifetime,
             {
                 $crate::higher::apply::ap(f,self)
             }
         }
 
-        impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* A> $crate::higher::Bind<'free_macro_reserved_lifetime,A> for $name<$($other_lifetimes,)* A>{
-            type Target<T> = $name<$($other_lifetimes,)* T>;
-            fn bind<B, F>(self, f: F) -> Self::Target<B>
+        impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* $generic $(,$other_generics)*> $crate::higher::Bind<'free_macro_reserved_lifetime,$generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*>{
+            type Target<FreeMacroReservedType> = $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*>;
+            fn bind<FreeMacroReservedType, FreeMacroReservedType2>(self, f: FreeMacroReservedType2) -> Self::Target<FreeMacroReservedType>
             where
-                F: Fn(A) -> Self::Target<B>,
+                FreeMacroReservedType2: Fn($generic) -> Self::Target<FreeMacroReservedType>,
             {
-                fn __bind_impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* A, B, F>(s : $name<$($other_lifetimes,)* A>, f: &F) -> $name<$($other_lifetimes,)* B> where F: Fn(A) -> $name<$($other_lifetimes,)* B> + 'free_macro_reserved_lifetime{
+                fn __bind_impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* $generic $(,$other_generics)*, FreeMacroReservedType, FreeMacroReservedType2>(s : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>, f: &FreeMacroReservedType2) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where FreeMacroReservedType2: Fn($generic) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> + 'free_macro_reserved_lifetime{
                     use $crate::higher::Functor;
                     match s {
                         $name::Pure(a) => {f(a)},
