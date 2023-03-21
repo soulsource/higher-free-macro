@@ -1,11 +1,37 @@
 //! A macro that uses the traits from the [higher] crate and generates a Free [`Monad`][higher::Monad] type for a given [`Functor`][higher::Functor].
 //! 
-//! # Free Monad? What is that?
+//! This is a port of the ["free" Haskell package](https://hackage.haskell.org/package/free).
+//! 
+//! # What is a Free Monad?
 //! A Free Monad is the left-adjoint to the Forget-Functor from the category of Monads into the category of Endofunctors.
 //! 
-//! This of course doesn't explain what one can do with a Free Monad data type. There are plenty of blog posts and websites that
-//! explore different use cases. A very good explanation is given by Nikolay Yakimov's
-//! [Introduction to Free Monads](https://serokell.io/blog/introduction-to-free-monads).
+//! From a programmer's perspective, however, it is a nifty way to create a [`Monad`][higher::Monad], that is "based" on a given [`Functor`][higher::Functor]
+//! and does not impose any additional structure beyond the [Monad Laws](https://wiki.haskell.org/Monad_laws).
+//! 
+//! The structure of the Free [`Monad`][higher::Monad] is defined by the underlying [`Functor`][higher::Functor].
+//! For instance, if the underlying [`Functor`][higher::Functor] is a [`Vec`], the corresponding Free [`Monad`][higher::Monad] will be a linked tree.
+//! If the underlying [`Functor`][higher::Functor] is an [`Option`], the corresponding Free [`Monad`][higher::Monad] is a linked list.
+//! And so on, and so forth.
+//! 
+//! There are many use cases for such a data structure, the most well known one is the creation of embedded
+//! [Domain Specific Languages](https://en.wikipedia.org/wiki/Domain-specific_language) (eDSLs).
+//! Going into detail would go beyond the scope of this documentation, however. Please check out Nikolay Yakimov's
+//! [Introduction to Free Monads](https://serokell.io/blog/introduction-to-free-monads) for that.
+//! 
+//! There is also a [blog post about the development of this macro](https://www.grois.info/posts/2023-03/2023-03-11-adventures-with-free-monads-and-higher.xhtml),
+//! that presents a simple (but inexact) mental picture
+//! (by means of actual [pictures](https://www.grois.info/posts/2023-03/2023-03-11-adventures-with-free-monads-and-higher.xhtml#ugly_drawings))
+//! of how the different [`Monad`][higher::Monad] operations (bind, fmap, pure, apply) work on Free Monads.
+//! 
+//! # How to use the macro?
+//! 
+//! For details, please see the [free] macro directly. In short, the syntax is either `free!(FreeMonadTypeName<'a, A>, FunctorItsBasedOn<FreeMonadTypeName<'a, A>>)`,
+//! or, if the lifetime of the Free Monad depends on the lifetime of the function passed to the Functor's fmap function,
+//! `free!(<'a>, FreeMonadTypeName<'a,A>, FunctorItsBasedOn<'a,FreeMonadTypeName<'a,A>>)`, where `'a` is the affected lifetime.
+//! 
+//! # Examples
+//! Please check the "tests" folder in the project's repo. While it currently just contains some trivial test cases, it will be extended over time to
+//! contain more involved examples.
 //! 
 //! # Why a Macro?
 //! Until [non-lifetime binders](https://github.com/rust-lang/rust/issues/108185) become stable, this seems to be the easiest way.
@@ -17,6 +43,142 @@
 
 pub extern crate higher;
 
+/// The macro that generates a Free [`Monad`][higher::Monad] type for a given [`Functor`][higher::Functor].
+/// 
+/// To declare a Free [`Monad`][higher::Monad] over a [`Functor`][higher::Functor] named `Funky<A>`, the syntax would be `free!(FreeFunky<A>, Funky<FreeFunky<A>>)`.
+/// This declares an enum named `FreeFunky<A>`, and implements all traits needed for it to be a [`Monad`][higher::Monad].
+/// 
+/// # Restrictions
+/// It is currently not supported to create a Free Monad for a Functor that does not implement [`Clone`]. This is because it is in general not
+/// possible to implement [`Apply`][higher::Apply] for a non-cloneable Free Monad, and because of how Rust resolves trait bounds in recursive types.
+/// 
+/// In addition, for the result to actually be a [`Monad`][higher::Monad], the `Pure` type (the type the Free Monad is generic over) needs to support [`Clone`]
+/// too. This is again because of the requirement of [`Apply`][higher::Apply], which in turn is a requirement of [`Monad`][higher::Monad]. However,
+/// it is typically not necessary to have a fully fledged [`Monad`][higher::Monad]. In most use cases, it's enough to have 
+/// [`Functor`][higher::Functor] + [`Bind`][higher::Bind] + [`Pure`][higher::Pure].
+/// 
+/// # Usage
+/// As stated above, the syntax to create a Free Monad is usually to call the macro with the desired Free Monad type as first,
+/// and the [`Functor`][higher::Functor] it should be based on as second parameter.
+/// 
+/// For example, a Free Monad based on [`Option`] could simply be created like this:
+/// ```
+/// # #[macro_use] extern crate higher_free_macro;
+/// # use higher_free_macro::higher::*;
+/// free!(FreeOption<A>, Option<FreeOption<A>>);
+/// ```
+/// 
+/// The type created by this is indeed a Monad, as long as the wrapped type is [`Clone`]:
+/// ```
+/// # #[macro_use] extern crate higher_free_macro;
+/// # use higher_free_macro::higher::*;
+/// free!(FreeOption<A>, Option<FreeOption<A>>);
+/// 
+/// fn returns_a_monad<'a, A>(a : A) -> impl Monad<'a,A> where A : Clone + 'a {
+///     FreeOption::Pure(a)
+/// }
+/// ```
+/// Since, strictly speaking, [`Apply`][higher::Apply] is not required to express the properties of a Monad (the mathematical structure, not the trait),
+/// one might want to skip the requirement of [`Clone`]. The result is still [`Bind`][higher::Bind], [`Functor`][higher::Functor] and [`Pure`][higher::Pure],
+/// so in the mathematical sense a Monad:
+/// ```
+/// # #[macro_use] extern crate higher_free_macro;
+/// # use higher_free_macro::higher::*;
+/// free!(FreeOption<A>, Option<FreeOption<A>>);
+///
+/// fn returns_a_bind_pure_functor<'a, A>(a : A) -> impl Bind<'a,A> + Pure<A> + Functor<'a,A>
+///     where A : 'a
+/// {
+///     FreeOption::Pure(a)
+/// }
+/// ```
+/// 
+/// That said, the macro also supports multiple generic parameters. The parameter for which the traits will be implemented is the first generic parameter
+/// of the to-be-created Free Monad type. For instance, a Free Monad based on [`Result`] would be:
+/// ```
+/// # #[macro_use] extern crate higher_free_macro;
+/// # use higher_free_macro::higher::*;
+/// free!(FreeResult<A,E>, Result<FreeResult<A,E>,E>);
+/// 
+/// fn returns_a_monad<'a, A, E>(r : Result<A,E>) -> impl Monad<'a,A> 
+///     where A : Clone + 'a, E : Clone
+/// {
+///     FreeResult::lift_f(r)
+/// }
+/// ```
+/// 
+/// Furthermore, the use case that the lifetime of the Free Monad depends on the lifetime of the mapping functions is supported too.
+/// This is particularly useful, because it enables the usage of (non-constant) continuation functions, what is a requirement for 
+/// using the Free Monad for an embedded Domain Specific Language (eDSL).
+/// 
+/// Such a [`Functor`][higher::Functor] could for instance look like this:
+/// ```
+/// # #[macro_use] extern crate higher_free_macro;
+/// # use higher_free_macro::higher::*;
+/// #[derive(Clone)]
+/// struct FunctorWithCont<'a, A>(std::rc::Rc<dyn Fn(i32)->A + 'a>);
+/// impl<'a,A : 'a> Functor<'a,A> for FunctorWithCont<'a, A>{
+///     type Target<T> = FunctorWithCont<'a, T>;
+///     fn fmap<B,F>(self, f :F) -> Self::Target<B> where F : Fn(A)->B + 'a{
+///         FunctorWithCont(std::rc::Rc::new(move |x| f((self.0)(x))))
+///     }
+/// }
+/// ```
+/// 
+/// Sadly, the macro syntax is a bit more convoluted in this case. The relevant lifetime has to be stated explicitly as the first parameter, like this:
+/// ```
+/// # #[macro_use] extern crate higher_free_macro;
+/// # use higher_free_macro::higher::*;
+/// free!(<'a>, FreeFunctorWithCont<'a,A>, FunctorWithCont<'a,FreeFunctorWithCont<'a,A>>);
+/// # #[derive(Clone)]
+/// # struct FunctorWithCont<'a, A>(std::rc::Rc<dyn Fn(i32)->A + 'a>);
+/// # impl<'a,A : 'a> Functor<'a,A> for FunctorWithCont<'a, A>{
+/// #     type Target<T> = FunctorWithCont<'a, T>;
+/// #     fn fmap<B,F>(self, f :F) -> Self::Target<B> where F : Fn(A)->B + 'a{
+/// #         FunctorWithCont(std::rc::Rc::new(move |x| f((self.0)(x))))
+/// #     }
+/// # }
+/// ```
+/// 
+/// # Generated Functions
+/// In addition to the trait implementations for [`Bind`][higher::Bind], [`Functor`][higher::Functor], [`Apply`][higher::Apply] and [`Pure`][higher::Pure],
+/// the macro also generates associated functions for the Free Monad type. These functions are:  
+/// `fn lift_f(functor : F) -> Self`  
+/// `fn retract(self)-> F where F : Bind + Pure`  
+/// where `F` is the [`Functor`][higher::Functor] the Free Monad is based on, specialized for the `Pure` type.
+/// A concrete example will make this more clear. Let's take our `FreeOption<A>` example from above. In this case, the signatures are  
+/// `fn lift_f(functor : Option<A>) -> FreeOption<A>` and  
+/// `fn retract(self : FreeOption<A>) -> Option<A>`
+/// 
+/// `lift_f()` converts a base Functor into the corresponding Free Monad, meaning that the Functor gets wrapped in `Free`, and the value it holds gets
+/// mapped into a `Pure`. The (simplified for readability) formula is:  
+/// `Self::Free(functor.fmap(|a| Self::Pure(a)))`
+/// 
+/// `retract()` is the left-inverse of `lift_f()`. `|x| retract(lift_f(x))` is (ignoring type coercion) equivalent to [`identity`][std::convert::identity]:
+/// ```
+/// # #[macro_use] extern crate higher_free_macro;
+/// # use higher_free_macro::higher::*;
+/// free!(FreeOption<A>, Option<FreeOption<A>>);
+/// fn main() {
+///     let free_monad = FreeOption::lift_f(Some(12345u32));
+///     match &free_monad {
+///         FreeOption::Free(o) => {
+///             match &**o {
+///                 Some(p) => {
+///                     match p {
+///                         FreeOption::Pure(v) => assert_eq!(v, &12345u32),
+///                         FreeOption::Free(_) => unreachable!()
+///                     }
+///                 },
+///                 None => unreachable!()
+///             }
+///         },
+///         FreeOption::Pure(_) => unreachable!()
+///     }
+///     let and_back = free_monad.retract();
+///     assert_eq!(and_back, Some(12345u32));
+/// }
+/// ```
 #[macro_export]
 macro_rules! free {
     ($v:vis $name:ident<$($other_lifetimes:lifetime,)* $generic:ident $(,$other_generics:ident)*>, $f:ty) => {
@@ -28,10 +190,10 @@ macro_rules! free {
         impl<$($other_lifetimes,)* $generic $(,$other_generics)*> $name<$($other_lifetimes,)* $generic $(,$other_generics)*>{
             $v fn lift_f(functor : <$f as $crate::higher::Functor<Self>>::Target<$generic>) -> Self{
                 use $crate::higher::Functor;
-                Self::Free(Box::new(functor.fmap(|a| Self::Pure(a))))
+                Self::Free(Box::new(functor.fmap(Self::Pure)))
             }
 
-            $v fn retract<'free_macro_reserved_lifetime>(self) -> <$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target<$generic> where $f : $crate::higher::Monad<'free_macro_reserved_lifetime,Self>, <$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target<$generic> : $crate::higher::Pure<$generic> {
+            $v fn retract<'free_macro_reserved_lifetime>(self) -> <$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target<$generic> where $f : $crate::higher::Bind<'free_macro_reserved_lifetime,Self>, <$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target<$generic> : $crate::higher::Pure<$generic> {
                 use $crate::higher::{Bind, Pure};
                 match self {
                     $name::Pure(a) => {<$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target::<$generic>::pure(a)},
@@ -44,7 +206,6 @@ macro_rules! free {
             type Target<FreeMacroReservedType> = $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*>;
             fn fmap<FreeMacroReservedType,FreeMacroReservedType2>(self, f: FreeMacroReservedType2) -> Self::Target<FreeMacroReservedType> where FreeMacroReservedType2: Fn($generic) -> FreeMacroReservedType + 'free_macro_reserved_lifetime{
                 fn __fmap_impl<'free_macro_reserved_lifetime, $($other_lifetimes,)* $generic $(,$other_generics)*, FreeMacroReservedType, FreeMacroReservedType2>(s : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>, f: &FreeMacroReservedType2) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where FreeMacroReservedType2: Fn($generic) -> FreeMacroReservedType + 'free_macro_reserved_lifetime{
-                    use $crate::higher::Functor;
                     match s {
                         $name::Pure(a) => {$name::Pure(f(a))},
                         $name::Free(fa) => {$name::Free(Box::new(fa.fmap(|x| __fmap_impl(x, f))))},
@@ -99,14 +260,14 @@ macro_rules! free {
         impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic : $a {
             $v fn lift_f(functor : <$f as $crate::higher::Functor<$a, Self>>::Target<$generic>) -> Self{
                 use $crate::higher::Functor;
-                Self::Free(Box::new(functor.fmap(|a| Self::Pure(a))))
+                Self::Free(Box::new(functor.fmap(Self::Pure)))
             }
 
-            $v fn retract(self) -> <$f as $crate::higher::Bind<$a,Self>>::Target<$generic> where $f : $crate::higher::Monad<$a,Self>, <$f as $crate::higher::Bind<$a,Self>>::Target<$generic> : $crate::higher::Pure<$generic> {
+            $v fn retract(self) -> <$f as $crate::higher::Bind<$a,Self>>::Target<$generic> where $f : $crate::higher::Bind<$a,Self>, <$f as $crate::higher::Bind<$a,Self>>::Target<$generic> : $crate::higher::Pure<$generic> {
                 use $crate::higher::{Bind, Pure};
                 match self {
                     $name::Pure(a) => {<$f as $crate::higher::Bind<$a,Self>>::Target::<$generic>::pure(a)},
-                    $name::Free(m) => {m.bind(|a| a.retract())}
+                    $name::Free(m) => {m.bind(Self::retract)}
                 }
             }
         }
@@ -117,7 +278,6 @@ macro_rules! free {
                 where F: Fn($generic) -> FreeMacroReservedType + $a
             {
                 fn __fmap_impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*, FreeMacroReservedType, F>(s : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where $generic : $a, F: Fn($generic) -> FreeMacroReservedType + $a{
-                    use $crate::higher::Functor;
                     match s {
                         $name::Pure(a) => {$name::Pure(f(a))},
                         $name::Free(fa) => {$name::Free(Box::new(fa.fmap(move |x : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>| __fmap_impl(x, f.clone()))))},
@@ -166,4 +326,63 @@ macro_rules! free {
             }
         }
     };
+}
+
+#[cfg(test)]
+mod free_monad_tests{
+    use higher::{Pure, Functor};
+
+    use super::free;
+    
+    free!(FreeVec<A>, Vec<FreeVec<A>>);
+
+    #[test]
+    fn test_lift_f_no_lifetime(){
+        let f = FreeVec::lift_f(vec![1,2,3]);
+        match f {
+            FreeVec::Free(v) => {
+                match &**v {
+                    [FreeVec::Pure(a),FreeVec::Pure(b),FreeVec::Pure(c)] => {
+                        assert_eq!(vec![*a,*b,*c], vec![1,2,3]);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    #[test]
+    fn test_retract_no_lifetime(){
+        let f = FreeVec::lift_f(vec![1,2,3]);
+        let v = f.retract();
+        assert_eq!(v, vec![1,2,3]);
+    }
+
+    #[test]
+    fn test_pure_no_lifetime(){
+        let f = FreeVec::pure(3);
+        match f {
+            FreeVec::Pure(v) => assert_eq!(v,3),
+            FreeVec::Free(_) => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn test_fmap_no_lifetime(){
+        let f = FreeVec::lift_f(vec![1,2,3]);
+        let f = f.fmap(|x| (x as f32)/2.0);
+        match f {
+            FreeVec::Free(f) => {
+                match &**f{
+                    [FreeVec::Pure(a), FreeVec::Pure(b), FreeVec::Pure(c)] => {
+                        assert_eq!(vec![0.5f32, 1f32, 1.5f32], vec![*a,*b,*c]);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
 }
