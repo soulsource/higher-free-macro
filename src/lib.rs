@@ -1,6 +1,6 @@
 //! A macro that uses the traits from the [higher] crate and generates a Free [`Monad`][higher::Monad] type for a given [`Functor`][higher::Functor].
 //! 
-//! This is a port of the ["free" Haskell package](https://hackage.haskell.org/package/free).
+//! This is a port of the Control.Monad.Free part of the ["free" Haskell package](https://hackage.haskell.org/package/free) by Edward Kmett.
 //! 
 //! # What is a Free Monad?
 //! A Free Monad is the left-adjoint to the Forget-Functor from the category of Monads into the category of Endofunctors.
@@ -40,6 +40,10 @@
 //! 
 //! See the [blog post about this crate](https://www.grois.info/posts/2023-03/2023-03-11-adventures-with-free-monads-and-higher.xhtml)
 //! for a more detailed explanation.
+//! 
+//! # A word of warning:
+//! This crate should be considered a proof-of-concept. Its memory complexity is horrendous, and the performance of the Free Monad's [`Apply`][higher::Apply]
+//! implementation can only be described as abysmal due to its reliance on deep copies.
 
 pub extern crate higher;
 
@@ -56,6 +60,12 @@ pub extern crate higher;
 /// too. This is again because of the requirement of [`Apply`][higher::Apply], which in turn is a requirement of [`Monad`][higher::Monad]. However,
 /// it is typically not necessary to have a fully fledged [`Monad`][higher::Monad]. In most use cases, it's enough to have 
 /// [`Functor`][higher::Functor] + [`Bind`][higher::Bind] + [`Pure`][higher::Pure].
+/// 
+/// The Free Monad type is implemented recursively. It is therefore akin to a linked tree, with all the respective performance implications.
+/// 
+/// Furthermore, the implementation of [`Apply`][higher::Apply] creates a potentially high number of deep copies of the `self` parameter.
+/// It should therefore be avoided, unless one really needs its 
+/// [tree-merging behaviour](https://www.grois.info/posts/2023-03/2023-03-11-adventures-with-free-monads-and-higher.xhtml#ugly_apply_drawing).
 /// 
 /// # Usage
 /// As stated above, the syntax to create a Free Monad is usually to call the macro with the desired Free Monad type as first,
@@ -330,7 +340,7 @@ macro_rules! free {
 
 #[cfg(test)]
 mod free_monad_tests{
-    use higher::{Pure, Functor};
+    use higher::{Pure, Functor, Bind};
 
     use super::free;
     
@@ -377,6 +387,30 @@ mod free_monad_tests{
                 match &**f{
                     [FreeVec::Pure(a), FreeVec::Pure(b), FreeVec::Pure(c)] => {
                         assert_eq!(vec![0.5f32, 1f32, 1.5f32], vec![*a,*b,*c]);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    #[test]
+    fn test_bind_no_lifetime(){
+        let f = FreeVec::lift_f(vec![1,2]);
+        let f = f.bind(|x| if x % 2 == 0 { FreeVec::lift_f(vec![x as f32,x as f32 + 1.0f32])} else { FreeVec::Pure(x as f32)});
+        match f {
+            FreeVec::Free(f) => {
+                match &**f {
+                    [FreeVec::Pure(a),FreeVec::Free(b)] => {
+                        assert_eq!(*a, 1.0f32);
+                        match &***b {
+                            [FreeVec::Pure(a), FreeVec::Pure(b)] => {
+                                assert_eq!(*a, 2.0f32);
+                                assert_eq!(*b, 3.0f32);
+                            },
+                            _ => unreachable!()
+                        }
                     },
                     _ => unreachable!()
                 }
