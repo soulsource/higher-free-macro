@@ -340,7 +340,7 @@ macro_rules! free {
 
 #[cfg(test)]
 mod free_monad_tests{
-    use higher::{Pure, Functor, Bind};
+    use higher::{Pure, Functor, Bind, Apply};
 
     use super::free;
     
@@ -411,6 +411,54 @@ mod free_monad_tests{
                             },
                             _ => unreachable!()
                         }
+                    },
+                    _ => unreachable!()
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    #[test]
+    fn test_apply_no_lifetime(){
+        let f = FreeVec::Free(Box::new(vec![FreeVec::Free(Box::new(vec![FreeVec::Pure((|x| (x as i32)*2) as fn(u32) -> i32), FreeVec::Pure((|x| (x as i32)+2) as fn(u32)->i32)])), FreeVec::Pure((|x| (x as i32)-5) as fn(u32)->i32)]));
+        let m = FreeVec::Free(Box::new(vec![FreeVec::Pure(5u32), FreeVec::Free(Box::new(vec![FreeVec::Pure(6u32), FreeVec::Pure(7u32)]))]));
+        let m = m.apply(f.fmap(Into::into));
+        //what have I gotten myself into...
+        //at least the mapped sub-trees are all identical in shape to m, so, they can be tested by the same test function...
+        let check_mlike_structure = |m : &FreeVec<_>, p1,p2,p3| {
+            match m {
+                FreeVec::Free(m) => {
+                    match &***m{
+                        [FreeVec::Pure(l),FreeVec::Free(r)] => {
+                            assert_eq!(*l,p1);
+                            match &***r{
+                                [FreeVec::Pure(l), FreeVec::Pure(r)] => {
+                                    assert_eq!(*l, p2);
+                                    assert_eq!(*r, p3);
+                                },
+                                _ => unreachable!()
+                            }
+                        },
+                        _ => unreachable!()
+                    }
+                },
+                _ => unreachable!()
+            }
+        };
+        //now, where are those sub-trees exactly, in this monstrosity?
+        match m {
+            FreeVec::Free(m) => {
+                match &**m{
+                    [FreeVec::Free(l), r] => {
+                        match &***l {
+                            [a,b] => {
+                                check_mlike_structure(a, 10,12,14);
+                                check_mlike_structure(b, 7,8,9);
+                            },
+                            _ => unreachable!()
+                        }
+                        check_mlike_structure(r, 0,1,2)
                     },
                     _ => unreachable!()
                 }
