@@ -198,11 +198,13 @@ macro_rules! free {
             Free(Box<$f>)
         }
         impl<$($other_lifetimes,)* $generic $(,$other_generics)*> $name<$($other_lifetimes,)* $generic $(,$other_generics)*>{
+            #[allow(unused)]
             $v fn lift_f(functor : <$f as $crate::higher::Functor<Self>>::Target<$generic>) -> Self{
                 use $crate::higher::Functor;
                 Self::Free(Box::new(functor.fmap(Self::Pure)))
             }
 
+            #[allow(unused)]
             $v fn retract<'free_macro_reserved_lifetime>(self) -> <$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target<$generic> where $f : $crate::higher::Bind<'free_macro_reserved_lifetime,Self>, <$f as $crate::higher::Bind<'free_macro_reserved_lifetime,Self>>::Target<$generic> : $crate::higher::Pure<$generic> {
                 use $crate::higher::{Bind, Pure};
                 match self {
@@ -267,12 +269,14 @@ macro_rules! free {
             Pure($generic),
             Free(Box<$f>)
         }
-        impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic : $a {
+        impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic : $a $(,$other_generics : $a)*{
+            #[allow(unused)]
             $v fn lift_f(functor : <$f as $crate::higher::Functor<$a, Self>>::Target<$generic>) -> Self{
                 use $crate::higher::Functor;
                 Self::Free(Box::new(functor.fmap(Self::Pure)))
             }
 
+            #[allow(unused)]
             $v fn retract(self) -> <$f as $crate::higher::Bind<$a,Self>>::Target<$generic> where $f : $crate::higher::Bind<$a,Self>, <$f as $crate::higher::Bind<$a,Self>>::Target<$generic> : $crate::higher::Pure<$generic> {
                 use $crate::higher::{Bind, Pure};
                 match self {
@@ -282,12 +286,12 @@ macro_rules! free {
             }
         }
     
-        impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $crate::higher::Functor<$a,$generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic : $a {
+        impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $crate::higher::Functor<$a,$generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic : $a $(,$other_generics : $a)* {
             type Target<FreeMacroReservedType> = $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*>;
             fn fmap<FreeMacroReservedType,F>(self, f: F) -> Self::Target<FreeMacroReservedType> 
                 where F: Fn($generic) -> FreeMacroReservedType + $a
             {
-                fn __fmap_impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*, FreeMacroReservedType, F>(s : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where $generic : $a, F: Fn($generic) -> FreeMacroReservedType + $a{
+                fn __fmap_impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*, FreeMacroReservedType, F>(s : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where $generic : $a $(,$other_generics : $a)*, F: Fn($generic) -> FreeMacroReservedType + $a{
                     match s {
                         $name::Pure(a) => {$name::Pure(f(a))},
                         $name::Free(fa) => {$name::Free(Box::new(fa.fmap(move |x : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>| __fmap_impl(x, f.clone()))))},
@@ -305,7 +309,7 @@ macro_rules! free {
             }
         }
 
-        impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $crate::higher::Apply<$a, $generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic: $a + Clone, Self : Clone{
+        impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $crate::higher::Apply<$a, $generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic: $a + Clone $(,$other_generics : $a + Clone)*, Self : Clone{
             type Target<FreeMacroReservedType> = $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where FreeMacroReservedType:$a;
             fn apply<FreeMacroReservedType>(
                 self,
@@ -318,13 +322,13 @@ macro_rules! free {
             }
         }
 
-        impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $crate::higher::Bind<$a,$generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic : $a{
+        impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*> $crate::higher::Bind<$a,$generic> for $name<$($other_lifetimes,)* $generic $(,$other_generics)*> where $generic : $a $(,$other_generics : $a)*{
             type Target<FreeMacroReservedType> = $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*>;
             fn bind<FreeMacroReservedType, F>(self, f: F) -> Self::Target<FreeMacroReservedType>
             where
                 F: Fn($generic) -> Self::Target<FreeMacroReservedType> + $a,
             {
-                fn __bind_impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*, FreeMacroReservedType, F>(s : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where $generic : $a, F: Fn($generic) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> + $a{
+                fn __bind_impl<$($other_lifetimes : $a,)* $generic $(,$other_generics)*, FreeMacroReservedType, F>(s : $name<$($other_lifetimes,)* $generic $(,$other_generics)*>, f : std::rc::Rc<F>) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> where $generic : $a $(,$other_generics : $a)*, F: Fn($generic) -> $name<$($other_lifetimes,)* FreeMacroReservedType $(,$other_generics)*> + $a{
                     use $crate::higher::Functor;
                     match s {
                         $name::Pure(a) => {f(a)},
@@ -466,5 +470,24 @@ mod free_monad_tests{
             _ => unreachable!()
         }
     }
+
+    //and the same for the with-dependent-lifetime case.
+
+    use std::rc::Rc;
+
+    #[derive(Clone)]
+    struct Conti<'a,A,B>(Rc<dyn Fn(B)->A + 'a>, Rc<dyn Fn(B)->A + 'a>); //two fields, to make apply testable.
+    impl<'a,A : 'a,B : 'a> Functor<'a,A> for Conti<'a,A,B>{
+        type Target<T> = Conti<'a,T,B>;
+
+        fn fmap<C, F>(self, f: F) -> Self::Target<C> where F: Fn(A) -> C + 'a {
+            let f = Rc::new(f);
+            let g = f.clone();
+            Conti(Rc::new(move |x| f((self.0)(x))), Rc::new(move |x| g((self.1)(x))))
+        }
+    }
+
+    free!(<'a>, FreeConti<'a,A,B>, Conti<'a,FreeConti<'a,A,B>,B>);
+
 
 }
