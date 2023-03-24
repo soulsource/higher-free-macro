@@ -28,7 +28,7 @@ If the lifetime of the result of the Functor's `fmap(f)` depends on the lifetime
 # Why macros though?
  This is mainly because a fully generic implementation seems impossible without [Non-lifetime Binders](https://github.com/rust-lang/rust/issues/108185), which would be needed to express the bound that the type of `Functor<A>::Result<T>` should not depend on `A`. Also, the [Never Type](https://github.com/rust-lang/rust/issues/35121) would be nice to have for a generic implementation.
 
- I've actually done a [proof-of-concept implementation](https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=1af5b0970cfe400a9245483f84080b8f) of a fully generic `Free` type using Nightly, but didn't follow this further yet, because it doesn't work in the stable toolchain yet.
+ I've actually done a [proof-of-concept implementation](https://play.rust-lang.org/?version=nightly&mode=debug&edition=2021&gist=1af5b0970cfe400a9245483f84080b8f) of a fully generic `Free` type using Nightly, but didn't follow this further, because it doesn't work in the stable toolchain yet.
 
  # A more involved example
 
@@ -147,3 +147,6 @@ fn main() {
     println!("{:?}", beers_per_bar);
 }
 ```
+
+# A note about the origin of this code
+The work on this project started at stillalive studios. The original goal was to learn about potential applications of Free Monads in game development, but this project has meanwhile outgrown that original plan, and has become a full proof-of-concept implementation for Free Monads in Rust.
