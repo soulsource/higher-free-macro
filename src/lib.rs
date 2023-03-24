@@ -344,7 +344,7 @@ macro_rules! free {
 
 #[cfg(test)]
 mod free_monad_tests{
-    use higher::{Pure, Functor, Bind, Apply};
+    use higher::{Pure, Functor, Bind, Apply, apply::ApplyFn};
 
     use super::free;
     
@@ -487,7 +487,224 @@ mod free_monad_tests{
         }
     }
 
+    //need Bind and Pure to test retract. This is dumb, but it should fulfill the monad laws:
+    impl<'a, A : 'a, B : 'a> Bind<'a, A> for Conti<'a,A,B> where B : Clone{
+        type Target<T> = Conti<'a,T,B>;
+
+        fn bind<C, F>(self, f: F) -> Self::Target<C> where F: Fn(A) -> Self::Target<C> + 'a {
+            let f = Rc::new(f);
+            let g = f.clone();
+            let l = move |x| f((self.0)(x));
+            let r = move |x| g((self.1)(x));
+            Conti(Rc::new(move |x| (l(x.clone())).0(x)), Rc::new(move |x| (r(x.clone())).1(x)))
+        }
+    }
+    impl<'a, A : 'a, B : 'a> Pure<A> for Conti<'a,A,B> where A : Clone{
+        fn pure(value: A) -> Self {
+            let v2 = value.clone();
+            Conti(Rc::new(move |_| value.clone()), Rc::new(move |_| v2.clone()))
+        }
+    }
+    
+    //I really am not certain if the Pure and Bind above are correct. Sooo, why not test those too, while we are at it?
+    #[test]
+    fn test_conti_monad_laws(){
+        let b = |x : u32| {
+            let y = x.clone();
+            Conti::<u32,u32>(Rc::new(move |a| x.clone() + a*2), Rc::new(move |a| y.clone() * a+3))
+        };
+        let t1 = Conti::pure(7u32);
+        let v1 = t1.bind(b);
+        let v2 = b(7u32);
+        assert_eq!((v1.0)(13), (v2.0)(13));
+        assert_eq!((v1.1)(17), (v2.1)(17));
+
+        let c = Conti(Rc::new(|a| 31 + a*5), Rc::new(|b| 32*b+3));
+        let d =c.clone().bind(Conti::pure);
+        assert_eq!((c.0)(3), (d.0)(3));
+        assert_eq!((c.1)(5), (d.1)(5));
+
+        let m =  Conti(Rc::new(|a| 32 + (a*2)), Rc::new(|b| 32*b+7));
+        let g = |x : u32| {
+            let y = x.clone();
+            Conti::<u32,u32>(Rc::new(move |a| x.clone()*2 + a), Rc::new(move |a| y.clone() * a+7))
+        };
+        let h = |x : u32| {
+            let y = x.clone();
+            Conti::<u32,u32>(Rc::new(move |a| x.clone() + a), Rc::new(move |a| y.clone() * a+12))
+        };
+
+        let v1 = (m.clone().bind(g.clone())).bind(h.clone());
+        let v2 = m.bind(|a| (g(a).bind(h)));
+        assert_eq!((v1.0)(37), (v2.0)(37));
+        assert_eq!((v1.1)(41), (v2.1)(41));
+
+        //well, looks monadic enough to me. Let's use it for the unit test of retract below.
+    }
+
+
     free!(<'a>, FreeConti<'a,A,B>, Conti<'a,FreeConti<'a,A,B>,B>);
 
+    #[test]
+    fn test_lift_f_lifetime(){
+        let f = FreeConti::lift_f(Conti(Rc::new((|x| x*2) as fn(u32) -> u32), Rc::new((|x| x+5) as fn(u32) -> u32)));
+        match f {
+            FreeConti::Free(m) => {
+                match (m.0)(4){
+                    FreeConti::Pure(v) => assert_eq!(v, 8),
+                    _ => unreachable!()
+                }
+                match (m.1)(4){
+                    FreeConti::Pure(v) => assert_eq!(v, 9),
+                    _ => unreachable!()
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    #[test]
+    fn test_retract_lifetime(){
+        let f = FreeConti::lift_f(Conti(Rc::new((|x| x*2) as fn(u32) -> u32), Rc::new((|x| x+5) as fn(u32) -> u32)));
+        let r = f.retract();
+        assert_eq!((r.0)(4), 8);
+        assert_eq!((r.1)(4), 9);
+    }
+
+    #[test]
+    fn test_fmap_lifetime(){
+        let c = Conti(Rc::new(|x : u32| (x as i32)*3+2), Rc::new(|x| ((x as i32)+2)*5));
+        let f = FreeConti::lift_f(c);
+        let f = f.fmap(|x : i32| (x as f32)*0.25f32);
+        match f {
+            FreeConti::Free(f) => {
+                let l = (f.0)(7);
+                match l {
+                    FreeConti::Pure(v) => {
+                        assert_eq!(v, 5.75f32);
+                    },
+                    _ => unreachable!()
+                }
+                let r = (f.1)(7);
+                match r {
+                    FreeConti::Pure(v) => {
+                        assert_eq!(v, 11.25f32);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    #[test]
+    fn test_pure_lifetime(){
+        let f : FreeConti<_,()> = FreeConti::pure(27);
+        match f {
+            FreeConti::Pure(v) => assert_eq!(v, 27),
+            FreeConti::Free(_) => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn test_bind_lifetime(){
+        let c = Conti(Rc::new(|x : u32| (x as i32)*3+2), Rc::new(|x| ((x as i32)+2)*5));
+        let f = FreeConti::lift_f(c);
+        let f = f.bind(|y| {
+            let z = y.clone();
+            FreeConti::lift_f(Conti(Rc::new(move |x| (x as f32)*0.25f32 + (y as f32)), Rc::new(move |x| (x as f32) * 0.5f32 - (z as f32))))
+        });
+        match f {
+            FreeConti::Free(f) => {
+                let l = (f.0)(4);
+                match l {
+                    FreeConti::Free(f) => {
+                        //14i32
+                        let l = (f.0)(5);
+                        match l {
+                            FreeConti::Pure(v) => assert_eq!(v, 15.25f32),
+                            FreeConti::Free(_) => unreachable!(),
+                        }
+                        let r = (f.1)(5);
+                        match r{
+                            FreeConti::Pure(v) => assert_eq!(v, -11.5f32),
+                            FreeConti::Free(_) => unreachable!(),
+                        }
+                    },
+                    FreeConti::Pure(_) => unreachable!(),
+                }
+                let r = (f.1)(4);
+                match r {
+                    FreeConti::Free(f) => {
+                        //30i32
+                        let l = (f.0)(5);
+                        match l {
+                            FreeConti::Pure(v) => assert_eq!(v, 31.25f32),
+                            FreeConti::Free(_) => unreachable!(),
+                        }
+                        let r = (f.1)(5);
+                        match r {
+                            FreeConti::Pure(v) => assert_eq!(v, -27.5f32),
+                            FreeConti::Free(_) => unreachable!(),
+                        }
+                    },
+                    FreeConti::Pure(_) => unreachable!(),
+                }
+            },
+            _ => unreachable!()
+        }
+    }
+
+    #[test]
+    fn test_apply_lifetime(){
+        //oh, god, please no.
+        let m = FreeConti::lift_f(Conti(Rc::new(|x : u32| (x as i32)*3+2), Rc::new(|x| ((x as i32)+2)*5)));
+        let f = FreeConti::lift_f(Conti(Rc::new(|x : u32| -> ApplyFn<i32,f32> {
+            (move |y : i32| (y + (x as i32)) as f32).into()
+        }), Rc::new(|x : u32| {
+            (move |y : i32| (y*(x as i32)) as f32).into()
+        })));
+        //make it stop!
+        let m = m.apply(f);
+        
+        match m {
+            FreeConti::Free(m) => {
+                let l = (m.0)(5u32);
+                match l {
+                    FreeConti::Free(m) => {
+                        let l = (m.0)(7u32);
+                        match l {
+                            FreeConti::Pure(v) => assert_eq!(v,28f32),
+                            FreeConti::Free(_) => unreachable!(),
+                        }
+                        let r = (m.1)(7u32);
+                        match r {
+                            FreeConti::Pure(v) => assert_eq!(v,50f32),
+                            FreeConti::Free(_) => unreachable!(),
+                        }
+                    },
+                    FreeConti::Pure(_) => unreachable!(),
+                }
+                let r = (m.1)(5u32);
+                match r {
+                    FreeConti::Free(m) => {
+                        let l = (m.0)(7u32);
+                        match l {
+                            FreeConti::Pure(v) => assert_eq!(v,(5f32*23f32)),
+                            FreeConti::Free(_) => unreachable!(),
+                        }
+                        let r = (m.1)(7u32);
+                        match r {
+                            FreeConti::Pure(v) => assert_eq!(v, 5f32*45f32),
+                            FreeConti::Free(_) => unreachable!(),
+                        }
+                    },
+                    FreeConti::Pure(_) => unreachable!(),
+                }
+            },
+            _ => unreachable!()
+        }
+        //let's never speak of this again.
+    }
 
 }
