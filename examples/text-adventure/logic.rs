@@ -1,11 +1,12 @@
 //! This module does nothing. It just creates the game's high level flow encoded as Free Monad.
 
-
 use std::borrow::Cow;
 
-use higher::{run, Functor, Pure, Bind};
 use super::data::{Inventory, Item, Location, Mood, Speaker};
-use super::dsl::{FreeSausageRoll, exposition, give_player_options, present_location, say_dialogue_line};
+use super::dsl::{
+    exposition, give_player_options, present_location, say_dialogue_line, FreeSausageRoll,
+};
+use higher::{run, Bind, Functor, Pure};
 
 //Haskell has a when function, and it's nice. Sooo, copy that.
 macro_rules! when {
@@ -18,9 +19,8 @@ macro_rules! when {
     };
 }
 
-
-pub fn game<'a,'s : 'a>() -> FreeSausageRoll<'a, 's, ()>{
-    run!{
+pub fn game<'a, 's: 'a>() -> FreeSausageRoll<'a, 's, ()> {
+    run! {
         c <= intro();
         when!{c => {
             //handle_rooms is the main game loop: Go from room to room.
@@ -31,8 +31,8 @@ pub fn game<'a,'s : 'a>() -> FreeSausageRoll<'a, 's, ()>{
     }
 }
 
-fn intro<'a,'s:'a>() -> FreeSausageRoll<'a, 's, bool>{
-    run!{
+fn intro<'a, 's: 'a>() -> FreeSausageRoll<'a, 's, bool> {
+    run! {
         present_location(Location::Entrance);
         say_dialogue_line(Speaker::Partner, Cow::from("Would you be so kind as to quickly grab me a sausage roll from the supermarket? With pickle if possible?"), Mood::Friendly);
         say_dialogue_line(Speaker::Partner, Cow::from("I'd meanwhile go over to the pharmacy, and buy some pills against headache."), Mood::Friendly);
@@ -47,24 +47,24 @@ fn intro<'a,'s:'a>() -> FreeSausageRoll<'a, 's, bool>{
     }
 }
 
-fn ending<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, ()>{
+fn ending<'a, 's: 'a>(inventory: Inventory) -> FreeSausageRoll<'a, 's, ()> {
     if inventory.items.contains(&Item::SausageRoll) {
-        if inventory.items.contains(&Item::Pickles){
-            run!{
+        if inventory.items.contains(&Item::Pickles) {
+            run! {
                 say_dialogue_line(Speaker::Partner, Cow::from("Wait, seriously? You bought a glass of pickles and a sausage roll without pickle?"), Mood::Confused);
                 exposition("You explain that the deli counter had run out of pickles.");
                 say_dialogue_line(Speaker::Partner, Cow::from("Well, that's a creative solution."), Mood::Amused);
                 say_dialogue_line(Speaker::Partner, Cow::from("Thanks a lot, let's move on."), Mood::Happy)
             }
         } else {
-            run!{
+            run! {
                 say_dialogue_line(Speaker::Partner, Cow::from("Thanks for the sausage roll, but there are no pickles in it?"), Mood::Annoyed);
                 exposition("You explain that the deli counter had run out of pickles.");
                 say_dialogue_line(Speaker::Partner, Cow::from("Well, that can't be helped then. Thanks a lot, let's move on."), Mood::Happy)
             }
         }
     } else {
-        run!{
+        run! {
             say_dialogue_line(Speaker::Partner, Cow::from("What did you do in there? I asked you to bring me a sausage roll..."), Mood::Annoyed);
             when!{!inventory.items.is_empty() => {
                 say_dialogue_line(Speaker::Partner, Cow::from("Also, why did you buy all that other stuff?"), Mood::Annoyed)
@@ -74,8 +74,11 @@ fn ending<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, ()>{
     }
 }
 
-fn handle_rooms<'a,'s:'a>(room: Location, inventory : Inventory) -> FreeSausageRoll<'a, 's, (Location, Inventory)>{
-    run!{
+fn handle_rooms<'a, 's: 'a>(
+    room: Location,
+    inventory: Inventory,
+) -> FreeSausageRoll<'a, 's, (Location, Inventory)> {
+    run! {
         c <= handle_room(room, inventory);
         if c.0 == Location::Entrance {
             FreeSausageRoll::pure(c)
@@ -86,8 +89,11 @@ fn handle_rooms<'a,'s:'a>(room: Location, inventory : Inventory) -> FreeSausageR
     }
 }
 
-fn handle_room<'a,'s:'a>(room : Location, inventory : Inventory) -> FreeSausageRoll<'a, 's, (Location, Inventory)> {
-    run!{
+fn handle_room<'a, 's: 'a>(
+    room: Location,
+    inventory: Inventory,
+) -> FreeSausageRoll<'a, 's, (Location, Inventory)> {
+    run! {
         present_location(room);
         match room {
             Location::Refrigerators => handle_refrigerators(inventory.clone()),
@@ -97,10 +103,12 @@ fn handle_room<'a,'s:'a>(room : Location, inventory : Inventory) -> FreeSausageR
             Location::Entrance => unreachable!(), //if we are at the entrance, we won.
         }
     }
-} 
+}
 
-fn handle_refrigerators<'a, 's: 'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (Location, Inventory)>{
-    run!{
+fn handle_refrigerators<'a, 's: 'a>(
+    inventory: Inventory,
+) -> FreeSausageRoll<'a, 's, (Location, Inventory)> {
+    run! {
         c <= {
             let options = if inventory.has_item_from_room(Location::Refrigerators) {
                 vec!["Move on to the Shelves.", "Move to the deli counter.", "Check Inventory", "Take an item", "Return an item"]
@@ -112,7 +120,7 @@ fn handle_refrigerators<'a, 's: 'a>(inventory : Inventory) -> FreeSausageRoll<'a
         match c {
             0 => { FreeSausageRoll::pure((Location::Shelves, inventory.clone())) },
             1 => { FreeSausageRoll::pure((Location::Deli, inventory.clone()))},
-            2 => { 
+            2 => {
                 let inventory = inventory.clone();
                 run!{
                     check_inventory(inventory.clone());
@@ -132,9 +140,11 @@ fn handle_refrigerators<'a, 's: 'a>(inventory : Inventory) -> FreeSausageRoll<'a
     }
 }
 
-fn handle_shelves<'a, 's: 'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (Location, Inventory)>{
+fn handle_shelves<'a, 's: 'a>(
+    inventory: Inventory,
+) -> FreeSausageRoll<'a, 's, (Location, Inventory)> {
     //this is rather similar to refrigerators. Just different items.
-    run!{
+    run! {
         c <= {
             let options = if inventory.has_item_from_room(Location::Shelves) {
                 vec!["Move on to the Refrigerators.", "Move to the deli counter.", "Move to the checkout.", "Check Inventory","Take an item", "Return an item"]
@@ -167,8 +177,8 @@ fn handle_shelves<'a, 's: 'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, 
     }
 }
 
-fn handle_deli<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (Location, Inventory)>{
-    run!{
+fn handle_deli<'a, 's: 'a>(inventory: Inventory) -> FreeSausageRoll<'a, 's, (Location, Inventory)> {
+    run! {
         c <= give_player_options(vec!["Move on to refrigerators.", "Move on to shelves.", "Check Inventory", "Talk to the lady behind the counter"]);
         match c{
             0 => FreeSausageRoll::pure((Location::Refrigerators, inventory.clone())),
@@ -191,8 +201,10 @@ fn handle_deli<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (Loca
     }
 }
 
-fn handle_checkout<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (Location, Inventory)>{
-    run!{
+fn handle_checkout<'a, 's: 'a>(
+    inventory: Inventory,
+) -> FreeSausageRoll<'a, 's, (Location, Inventory)> {
+    run! {
         c <= {
             let options = if inventory.has_item_from_room(Location::Checkout) {
                 vec!["Move back to the shelves.", "Pay for your stuff and leave.", "Check Inventory", "Take an item", "Return an item"]
@@ -203,7 +215,7 @@ fn handle_checkout<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (
         };
         match c {
             0 => { FreeSausageRoll::pure((Location::Shelves, inventory.clone())) },
-            1 => { 
+            1 => {
                 run!{
                     r <= try_pay(inventory.clone());
                     match r {
@@ -237,11 +249,14 @@ fn handle_checkout<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (
     }
 }
 
-fn try_take_item<'a, 's: 'a>(inventory : Inventory, options : Vec<Item>) -> FreeSausageRoll<'a, 's,Inventory>{
+fn try_take_item<'a, 's: 'a>(
+    inventory: Inventory,
+    options: Vec<Item>,
+) -> FreeSausageRoll<'a, 's, Inventory> {
     //here we run into an "interesting" issue with Rust's ownership and do-notation.
     //We would like to capture inventory and use it in bind-notation, but that doesn't work (except in the first 2 lines), because Inventory isn't Copy.
     //This leaves us with a couple of options: We can either pass it through by repeated cloning (done here), or leave do-notation before capturing it.
-    run!{
+    run! {
         i <= exposition("You look around and these items nearby catch your attention.").fmap(move |_| (inventory.clone(), options.clone()));
         o <= give_player_options(i.1.iter().map(|o| o.description()).chain(std::iter::once("Cancel")).collect()).fmap(move |c| (c, i.0.clone(), i.1.clone()));
         {
@@ -269,11 +284,19 @@ fn try_take_item<'a, 's: 'a>(inventory : Inventory, options : Vec<Item>) -> Free
     }
 }
 
-fn return_item<'a,'s:'a>(inventory : Inventory, room : Location) -> FreeSausageRoll<'a,'s, Inventory>{
+fn return_item<'a, 's: 'a>(
+    inventory: Inventory,
+    room: Location,
+) -> FreeSausageRoll<'a, 's, Inventory> {
     //similar to try_take_item here the inventory can't easily be captured. For illustration purposes, here we
     //don't pass it along as clones, but rather return from do-notation to capture it.
     let items_in_room = room.items();
-    let carried_items_from_here = inventory.items.iter().filter(|i| items_in_room.contains(i)).copied().collect::<Vec<_>>();
+    let carried_items_from_here = inventory
+        .items
+        .iter()
+        .filter(|i| items_in_room.contains(i))
+        .copied()
+        .collect::<Vec<_>>();
     //ownership shmownership
     let carried_items_from_here2 = carried_items_from_here.clone();
     let chosen = run! {
@@ -281,26 +304,30 @@ fn return_item<'a,'s:'a>(inventory : Inventory, room : Location) -> FreeSausageR
         give_player_options(carried_items_from_here.iter().map(|o| o.description()).chain(std::iter::once("Cancel")).collect())
     };
     chosen.bind(move |c| {
-        match carried_items_from_here2.get(c).ok_or_else(|| inventory.clone()).and_then(|i| inventory.clone().try_remove(*i)) {
+        match carried_items_from_here2
+            .get(c)
+            .ok_or_else(|| inventory.clone())
+            .and_then(|i| inventory.clone().try_remove(*i))
+        {
             Ok(i) => {
-                run!{
+                run! {
                     exposition("You put back the item.");
                     yield i.clone()
                 }
-            },
+            }
             Err(i) => {
                 run! {
                     exposition("You decided to not return an item."); //good enough. We filtered for valid items beforehand.
                     yield i.clone()
                 }
-            },
+            }
         }
     })
 }
 
-fn check_inventory<'a, 's:'a>(inventory : Inventory) -> FreeSausageRoll<'a,'s, ()>{
+fn check_inventory<'a, 's: 'a>(inventory: Inventory) -> FreeSausageRoll<'a, 's, ()> {
     let c = inventory.items.len();
-    run!{
+    run! {
         exposition("You look at the items you carry. You are holding:");
         list_inventory_items(inventory.clone(),0);
         if c < 2 {
@@ -314,9 +341,12 @@ fn check_inventory<'a, 's:'a>(inventory : Inventory) -> FreeSausageRoll<'a,'s, (
     }
 }
 
-fn list_inventory_items<'a,'s:'a>(inventory : Inventory, index : usize) -> FreeSausageRoll<'a,'s, ()>{
+fn list_inventory_items<'a, 's: 'a>(
+    inventory: Inventory,
+    index: usize,
+) -> FreeSausageRoll<'a, 's, ()> {
     if index < inventory.items.len() {
-        run!{
+        run! {
             exposition(inventory.items[index].description());
             list_inventory_items(inventory.clone(), index+1)
         }
@@ -325,7 +355,7 @@ fn list_inventory_items<'a,'s:'a>(inventory : Inventory, index : usize) -> FreeS
     }
 }
 
-fn talk_to_deli_lady<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a,'s,Inventory>{
+fn talk_to_deli_lady<'a, 's: 'a>(inventory: Inventory) -> FreeSausageRoll<'a, 's, Inventory> {
     run!{
         exposition("You greet the lady at the deli counter.");
         say_dialogue_line(Speaker::DeliLady, Cow::from("Hi! How can I help you, dear?"), Mood::Friendly);
@@ -333,7 +363,7 @@ fn talk_to_deli_lady<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a,'s,I
     }.bind(move |_| deli_lady_loop(inventory.clone()))
 }
 
-fn deli_lady_loop<'a, 's: 'a>(inventory : Inventory) -> FreeSausageRoll<'a,'s,Inventory>{
+fn deli_lady_loop<'a, 's: 'a>(inventory: Inventory) -> FreeSausageRoll<'a, 's, Inventory> {
     let has_deli_item = inventory.has_item_from_room(Location::Deli);
     let c = run! {
         if has_deli_item {
@@ -395,7 +425,9 @@ fn deli_lady_loop<'a, 's: 'a>(inventory : Inventory) -> FreeSausageRoll<'a,'s,In
     })
 }
 
-fn try_pay<'a, 's:'a>(inventory : Inventory) -> FreeSausageRoll<'a,'s,Result<Inventory,Inventory>>{
+fn try_pay<'a, 's: 'a>(
+    inventory: Inventory,
+) -> FreeSausageRoll<'a, 's, Result<Inventory, Inventory>> {
     let total_price = inventory.total_price();
     let can_afford = inventory.can_afford();
     run!{
