@@ -28,20 +28,25 @@
 //! # How to use the macro?
 //!
 //! For details, please see the documentation of the [free] macro.
-//! In short, the syntax is either `free!(FreeMonadTypeName<'a, A>, FunctorItsBasedOn<FreeMonadTypeName<'a, A>>)`,
-//! or, if the lifetime of the Free Monad depends on the lifetime of the function passed to the Functor's fmap function,
-//! `free!(<'a>, FreeMonadTypeName<'a,A>, FunctorItsBasedOn<'a,FreeMonadTypeName<'a,A>>)`, where `'a` is the affected lifetime.
+//! In short, the syntax is either  
+//! `free!(FreeMonadTypeName<'a,A>, FunctorItsBasedOn<FreeMonadTypeName<'a,A>>)`,  
+//! or, if the lifetime of the Free Monad depends on the lifetime of the function passed to the Functor's fmap function,  
+//! `free!(<'a>, FreeMonadTypeName<'a,A>, FunctorItsBasedOn<'a,FreeMonadTypeName<'a,A>>)`,  
+//! where `'a` is the affected lifetime.
 //!
 //! # Examples
 //! The project's repository contains a folder named "examples", which at the moment contains a tiny text adventure that shows how such a game
 //! could be implemented with Free Monads. The example highlights both, features and (current) limitations of Free Monads in Rust.
 //!
-//! In addition, there is the "tests" folder, which contains integration tests, that show the syntax of the `free!()` macro in action.
+//! In addition, there is the "tests" folder, which contains integration tests, that show more of the syntax of the `free!()` macro in action.
 //!
 //! # Why a Macro?
 //! Until [non-lifetime binders](https://github.com/rust-lang/rust/issues/108185) become stable, this seems to be the easiest way.
-//! In generic code, the type signature would be `enum Free<A,F> where F : Functor<Free<A,F>>`. If one now wants to implement the [`Functor`][higher::Functor]
-//! trait for this, it is not really possible to express the `Target<T> = Free<A,F::Target<Free<A,F::Target<...>>>>` generic associated type.
+//! In generic code, the type signature would be  
+//! `enum Free<A,F> where F : Functor<Free<A,F>>`.  
+//! If one now wants to implement the [`Functor`][higher::Functor] trait for this, it is not really possible to express the  
+//! `Target<T> = Free<A,F::Target<Free<A,F::Target<...>>>>`  
+//! generic associated type.
 //!
 //! See the [blog post about this crate](https://www.grois.info/posts/2023-03/2023-03-11-adventures-with-free-monads-and-higher.xhtml)
 //! for a more detailed explanation.
@@ -54,11 +59,13 @@
 //! There is work ongoing to [add explicit clone support to higher](https://github.com/bodil/higher/issues/6) though, so this might no longer be an issue with
 //! later higher versions.
 
+#[doc(hidden)] //that this is re-exported is an implementation detail. Users should import directly from higher imho.
 pub extern crate higher;
 
 /// The macro that generates a Free [`Monad`][higher::Monad] type for a given [`Functor`][higher::Functor].
 ///
-/// To declare a Free [`Monad`][higher::Monad] over a [`Functor`][higher::Functor] named `Funky<A>`, the syntax would be `free!(FreeFunky<A>, Funky<FreeFunky<A>>)`.
+/// To declare a Free [`Monad`][higher::Monad] over a [`Functor`][higher::Functor] named `Funky<A>`, the syntax would be  
+/// `free!(FreeFunky<A>, Funky<FreeFunky<A>>)`.  
 /// This declares an enum named `FreeFunky<A>`, and implements all traits needed for it to be a [`Monad`][higher::Monad].
 ///
 /// # Restrictions
@@ -169,8 +176,8 @@ pub extern crate higher;
 /// `fn lift_f(functor : Option<A>) -> FreeOption<A>` and  
 /// `fn retract(self : FreeOption<A>) -> Option<A>`
 ///
-/// `lift_f()` converts a base Functor into the corresponding Free Monad, meaning that the Functor gets wrapped in `Free`, and the value it holds gets
-/// mapped into a `Pure`. The (simplified for readability) formula is:  
+/// `lift_f()` converts a base Functor into the corresponding Free Monad, meaning that the Functor gets wrapped in `Free`, and the values it holds get
+/// mapped into `Pure`. The (simplified for readability) formula is:  
 /// `Self::Free(functor.fmap(|a| Self::Pure(a)))`
 ///
 /// `retract()` is the left-inverse of `lift_f()`. `|x| retract(lift_f(x))` is (ignoring type coercion) equivalent to [`identity`][std::convert::identity]:
