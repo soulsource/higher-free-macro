@@ -1,3 +1,5 @@
+#![deny(clippy::pedantic)]
+#![deny(clippy::all)]
 //! Test for the case that the Functor the Free Monad is based on has lifetime parameters that do not depend on the
 //! lifetime of the mapping function in the Functor implementation.
 

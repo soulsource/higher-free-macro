@@ -4,8 +4,8 @@
 use std::borrow::Cow;
 
 use higher::{run, Functor, Pure, Bind};
-use super::data::*;
-use super::dsl::*;
+use super::data::{Inventory, Item, Location, Mood, Speaker};
+use super::dsl::{FreeSausageRoll, exposition, give_player_options, present_location, say_dialogue_line};
 
 //Haskell has a when function, and it's nice. Sooo, copy that.
 macro_rules! when {
@@ -24,7 +24,7 @@ pub fn game<'a,'s : 'a>() -> FreeSausageRoll<'a, 's, ()>{
         c <= intro();
         when!{c => {
             //handle_rooms is the main game loop: Go from room to room.
-            c <= handle_rooms(Location::Refrigerators, Default::default()); //can't destructure in assignment in higher-0.2. Maybe later.
+            c <= handle_rooms(Location::Refrigerators, Inventory::default()); //can't destructure in assignment in higher-0.2. Maybe later.
             //if we ended up here, we left the supermarket.
             ending(c.1)
         }}
@@ -66,7 +66,7 @@ fn ending<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, ()>{
     } else {
         run!{
             say_dialogue_line(Speaker::Partner, Cow::from("What did you do in there? I asked you to bring me a sausage roll..."), Mood::Annoyed);
-            when!{inventory.items.len() > 0 => {
+            when!{!inventory.items.is_empty() => {
                 say_dialogue_line(Speaker::Partner, Cow::from("Also, why did you buy all that other stuff?"), Mood::Annoyed)
             }};
             say_dialogue_line(Speaker::Partner, Cow::from("Well, let's move on, but don't complain if I get hangry on the way."), Mood::Annoyed)
@@ -77,13 +77,11 @@ fn ending<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, ()>{
 fn handle_rooms<'a,'s:'a>(room: Location, inventory : Inventory) -> FreeSausageRoll<'a, 's, (Location, Inventory)>{
     run!{
         c <= handle_room(room, inventory);
-        if c.0 != Location::Entrance {
+        if c.0 == Location::Entrance {
+            FreeSausageRoll::pure(c)
+        } else {
             //If this were an actual game, we could put a save-point here. At this location the next room to handle is just determined by room and inventory.
             handle_rooms(c.0, c.1)
-        } else {
-            run!{
-                yield c
-            }
         }
     }
 }
@@ -185,7 +183,7 @@ fn handle_deli<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (Loca
             3 => {
                 run!{
                     i <= talk_to_deli_lady(inventory.clone());
-                    handle_deli(i.clone())
+                    handle_deli(i)
                 }
             },
             _ => unreachable!()
@@ -215,7 +213,7 @@ fn handle_checkout<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (
                                 FreeSausageRoll::pure((Location::Entrance, inventory.clone()))
                             }
                         },
-                        Err(inventory) => handle_checkout(inventory.clone()),
+                        Err(inventory) => handle_checkout(inventory),
                     }
                 }
             },
@@ -275,7 +273,7 @@ fn return_item<'a,'s:'a>(inventory : Inventory, room : Location) -> FreeSausageR
     //similar to try_take_item here the inventory can't easily be captured. For illustration purposes, here we
     //don't pass it along as clones, but rather return from do-notation to capture it.
     let items_in_room = room.items();
-    let carried_items_from_here = inventory.items.iter().filter(|i| items_in_room.contains(i)).cloned().collect::<Vec<_>>();
+    let carried_items_from_here = inventory.items.iter().filter(|i| items_in_room.contains(i)).copied().collect::<Vec<_>>();
     //ownership shmownership
     let carried_items_from_here2 = carried_items_from_here.clone();
     let chosen = run! {

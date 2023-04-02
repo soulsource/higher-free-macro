@@ -1,3 +1,5 @@
+#![deny(clippy::pedantic)]
+#![deny(clippy::all)]
 //! A small example text adventure, the logic of which is implemented as a Free Monad based eDSL.
 //! 
 //! The goal of this game is to buy a sausage roll. With pickle.
@@ -11,17 +13,17 @@
 //! 
 //! In a real project, I'd just make all game state (here: inventory) `Copy`, and use owned values wherever possible to make the code
 //! more concise. If `Copy` is not an option, I'd probably make a custom version of `run!{}` that allows to clone the
-//! game state in a convenient way (see https://github.com/bodil/higher/issues/6).
+//! game state in a convenient way (see [higher issue 6](https://github.com/bodil/higher/issues/6)).
 //! 
 //! But on to the explanation what is going on:
 //! This project has 4 modules:
-//! - "data" contains the data. Stuff like item types, item descriptions, rooms, etc.
-//! - "dsl" contains the embedded domain specific language. In other words, a Functor and the corresponding Free Monad type (and some helpers)
-//! - "logic" describes the game's main logic using the language defined in "dsl"
-//! - "side_effects" actually runs the logic.
+//! - `data` contains the data. Stuff like item types, item descriptions, rooms, etc.
+//! - `dsl` contains the embedded domain specific language. In other words, a Functor and the corresponding Free Monad type (and some helpers)
+//! - `logic` describes the game's main logic using the language defined in "dsl"
+//! - `side_effects` actually runs the logic.
 //! 
-//! The important part here is that all the stuff that isn't in "side_effects" is independent of the concrete implementation of "side_effects".
-//! The current "side_effects" runs a text-adventure, but it could just as well render as a visual-novel, without the need to touch any of the other modules.
+//! The important part here is that all the stuff that isn't in `side_effects` is independent of the concrete implementation of `side_effects`.
+//! The current `side_effects` runs a text-adventure, but it could just as well render as a visual-novel, without the need to touch any of the other modules.
 
 mod data;
 mod dsl;

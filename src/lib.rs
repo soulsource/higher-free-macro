@@ -1,3 +1,5 @@
+#![deny(clippy::pedantic)]
+#![deny(clippy::all)]
 //! A macro that uses the traits from the [higher] crate and generates a Free [`Monad`][higher::Monad] type for a given [`Functor`][higher::Functor].
 //! 
 //! This is a port of the Control.Monad.Free part of the ["free" Haskell package](https://hackage.haskell.org/package/free) by Edward Kmett.
@@ -359,17 +361,17 @@ mod free_monad_tests{
 
     #[test]
     fn test_lift_f_no_lifetime(){
-        let f = FreeVec::lift_f(vec![1,2,3]);
-        match f {
-            FreeVec::Free(v) => {
-                match &**v {
+        let free = FreeVec::lift_f(vec![1,2,3]);
+        match free {
+            FreeVec::Free(vector) => {
+                match &**vector {
                     [FreeVec::Pure(a),FreeVec::Pure(b),FreeVec::Pure(c)] => {
                         assert_eq!(vec![*a,*b,*c], vec![1,2,3]);
                     },
                     _ => unreachable!()
                 }
             },
-            _ => unreachable!()
+            FreeVec::Pure(_) => unreachable!()
         }
     }
 
@@ -392,33 +394,41 @@ mod free_monad_tests{
     #[test]
     fn test_fmap_no_lifetime(){
         let f = FreeVec::lift_f(vec![1,2,3]);
-        let f = f.fmap(|x| (x as f32)/2.0);
+        let f = f.fmap(|x| (f64::from(x))/2.0);
         match f {
             FreeVec::Free(f) => {
                 match &**f{
                     [FreeVec::Pure(a), FreeVec::Pure(b), FreeVec::Pure(c)] => {
-                        assert_eq!(vec![0.5f32, 1f32, 1.5f32], vec![*a,*b,*c]);
+                        assert_eq!(vec![0.5f64, 1f64, 1.5f64], vec![*a,*b,*c]);
                     },
                     _ => unreachable!()
                 }
             },
-            _ => unreachable!()
+            FreeVec::Pure(_) => unreachable!()
         }
+    }
+
+    //just to appease clippy without disabling the lint....
+    macro_rules! assert_nearly_equal {
+        ($a:expr, $b:expr, $c:expr) => {
+            assert!((($a)-($b)).abs() < $c)
+        };
     }
 
     #[test]
     fn test_bind_no_lifetime(){
         let f = FreeVec::lift_f(vec![1,2]);
-        let f = f.bind(|x| if x % 2 == 0 { FreeVec::lift_f(vec![x as f32,x as f32 + 1.0f32])} else { FreeVec::Pure(x as f32)});
+        let f = f.bind(|x| if x % 2 == 0 { FreeVec::lift_f(vec![f64::from(x),f64::from(x) + 1.0f64])} else { FreeVec::Pure(f64::from(x))});
         match f {
             FreeVec::Free(f) => {
                 match &**f {
                     [FreeVec::Pure(a),FreeVec::Free(b)] => {
-                        assert_eq!(*a, 1.0f32);
+
+                        assert_nearly_equal!(*a, 1.0f64, f64::EPSILON);
                         match &***b {
                             [FreeVec::Pure(a), FreeVec::Pure(b)] => {
-                                assert_eq!(*a, 2.0f32);
-                                assert_eq!(*b, 3.0f32);
+                                assert_nearly_equal!(*a, 2.0f64, f64::EPSILON);
+                                assert_nearly_equal!(*b, 3.0f64, f64::EPSILON);
                             },
                             _ => unreachable!()
                         }
@@ -426,27 +436,27 @@ mod free_monad_tests{
                     _ => unreachable!()
                 }
             },
-            _ => unreachable!()
+            FreeVec::Pure(_) => unreachable!()
         }
     }
 
     #[test]
     fn test_apply_no_lifetime(){
-        let f = FreeVec::Free(Box::new(vec![FreeVec::Free(Box::new(vec![FreeVec::Pure((|x| (x as i32)*2) as fn(u32) -> i32), FreeVec::Pure((|x| (x as i32)+2) as fn(u32)->i32)])), FreeVec::Pure((|x| (x as i32)-5) as fn(u32)->i32)]));
-        let m = FreeVec::Free(Box::new(vec![FreeVec::Pure(5u32), FreeVec::Free(Box::new(vec![FreeVec::Pure(6u32), FreeVec::Pure(7u32)]))]));
-        let m = m.apply(f.fmap(Into::into));
+        let functions = FreeVec::Free(Box::new(vec![FreeVec::Free(Box::new(vec![FreeVec::Pure((|x| i64::from(x)*2) as fn(u32) -> i64), FreeVec::Pure((|x| i64::from(x)+2) as fn(u32)->i64)])), FreeVec::Pure((|x| i64::from(x)-5) as fn(u32)->i64)]));
+        let free_monad = FreeVec::Free(Box::new(vec![FreeVec::Pure(5u32), FreeVec::Free(Box::new(vec![FreeVec::Pure(6u32), FreeVec::Pure(7u32)]))]));
+        let free_monad = free_monad.apply(functions.fmap(Into::into));
         //what have I gotten myself into...
         //at least the mapped sub-trees are all identical in shape to m, so, they can be tested by the same test function...
-        let check_mlike_structure = |m : &FreeVec<_>, p1,p2,p3| {
-            match m {
-                FreeVec::Free(m) => {
-                    match &***m{
-                        [FreeVec::Pure(l),FreeVec::Free(r)] => {
-                            assert_eq!(*l,p1);
-                            match &***r{
-                                [FreeVec::Pure(l), FreeVec::Pure(r)] => {
-                                    assert_eq!(*l, p2);
-                                    assert_eq!(*r, p3);
+        let check_mlike_structure = |free_monad : &FreeVec<_>, pure1,pure2,pure3| {
+            match free_monad {
+                FreeVec::Free(vector) => {
+                    match &***vector{
+                        [FreeVec::Pure(left),FreeVec::Free(right)] => {
+                            assert_eq!(*left,pure1);
+                            match &***right{
+                                [FreeVec::Pure(left), FreeVec::Pure(right)] => {
+                                    assert_eq!(*left, pure2);
+                                    assert_eq!(*right, pure3);
                                 },
                                 _ => unreachable!()
                             }
@@ -454,27 +464,27 @@ mod free_monad_tests{
                         _ => unreachable!()
                     }
                 },
-                _ => unreachable!()
+                FreeVec::Pure(_) => unreachable!()
             }
         };
         //now, where are those sub-trees exactly, in this monstrosity?
-        match m {
-            FreeVec::Free(m) => {
-                match &**m{
-                    [FreeVec::Free(l), r] => {
-                        match &***l {
+        match free_monad {
+            FreeVec::Free(vector) => {
+                match &**vector{
+                    [FreeVec::Free(left), right] => {
+                        match &***left {
                             [a,b] => {
-                                check_mlike_structure(a, 10,12,14);
-                                check_mlike_structure(b, 7,8,9);
+                                check_mlike_structure(a, 10i64,12i64,14i64);
+                                check_mlike_structure(b, 7i64,8i64,9i64);
                             },
                             _ => unreachable!()
                         }
-                        check_mlike_structure(r, 0,1,2)
+                        check_mlike_structure(right, 0i64,1i64,2i64);
                     },
                     _ => unreachable!()
                 }
             },
-            _ => unreachable!()
+            FreeVec::Pure(_) => unreachable!()
         }
     }
 
@@ -495,7 +505,7 @@ mod free_monad_tests{
     }
 
     //need Bind and Pure to test retract. This is dumb, but it should fulfill the monad laws:
-    impl<'a, A : 'a, B : 'a> Bind<'a, A> for Conti<'a,A,B> where B : Clone{
+    impl<'a, A : 'a, B : Clone+'a> Bind<'a, A> for Conti<'a,A,B>{
         type Target<T> = Conti<'a,T,B>;
 
         fn bind<C, F>(self, f: F) -> Self::Target<C> where F: Fn(A) -> Self::Target<C> + 'a {
@@ -506,7 +516,7 @@ mod free_monad_tests{
             Conti(Rc::new(move |x| (l(x.clone())).0(x)), Rc::new(move |x| (r(x.clone())).1(x)))
         }
     }
-    impl<'a, A : 'a, B : 'a> Pure<A> for Conti<'a,A,B> where A : Clone{
+    impl<'a, A : Clone+'a, B : 'a> Pure<A> for Conti<'a,A,B>{
         fn pure(value: A) -> Self {
             let v2 = value.clone();
             Conti(Rc::new(move |_| value.clone()), Rc::new(move |_| v2.clone()))
@@ -516,33 +526,31 @@ mod free_monad_tests{
     //I really am not certain if the Pure and Bind above are correct. Sooo, why not test those too, while we are at it?
     #[test]
     fn test_conti_monad_laws(){
-        let b = |x : u32| {
-            let y = x.clone();
-            Conti::<u32,u32>(Rc::new(move |a| x.clone() + a*2), Rc::new(move |a| y.clone() * a+3))
+        let binder = |x : u32| {
+            let y = x;
+            Conti::<u32,u32>(Rc::new(move |a| x + a*2), Rc::new(move |a| y * a+3))
         };
-        let t1 = Conti::pure(7u32);
-        let v1 = t1.bind(b);
-        let v2 = b(7u32);
+        let test1 = Conti::pure(7u32);
+        let v1 = test1.bind(binder);
+        let v2 = binder(7u32);
         assert_eq!((v1.0)(13), (v2.0)(13));
         assert_eq!((v1.1)(17), (v2.1)(17));
 
-        let c = Conti(Rc::new(|a| 31 + a*5), Rc::new(|b| 32*b+3));
-        let d =c.clone().bind(Conti::pure);
-        assert_eq!((c.0)(3), (d.0)(3));
-        assert_eq!((c.1)(5), (d.1)(5));
+        let test2 = Conti(Rc::new(|a| 31 + a*5), Rc::new(|b| 32*b+3));
+        let bound_with_pure =test2.clone().bind(Conti::pure);
+        assert_eq!((test2.0)(3), (bound_with_pure.0)(3));
+        assert_eq!((test2.1)(5), (bound_with_pure.1)(5));
 
-        let m =  Conti(Rc::new(|a| 32 + (a*2)), Rc::new(|b| 32*b+7));
+        let test3 =  Conti(Rc::new(|a| 32 + (a*2)), Rc::new(|b| 32*b+7));
         let g = |x : u32| {
-            let y = x.clone();
-            Conti::<u32,u32>(Rc::new(move |a| x.clone()*2 + a), Rc::new(move |a| y.clone() * a+7))
+            Conti::<u32,u32>(Rc::new(move |a| x*2 + a), Rc::new(move |a| x * a+7))
         };
         let h = |x : u32| {
-            let y = x.clone();
-            Conti::<u32,u32>(Rc::new(move |a| x.clone() + a), Rc::new(move |a| y.clone() * a+12))
+            Conti::<u32,u32>(Rc::new(move |a| x + a), Rc::new(move |a| x * a+12))
         };
 
-        let v1 = (m.clone().bind(g.clone())).bind(h.clone());
-        let v2 = m.bind(|a| (g(a).bind(h)));
+        let v1 = (test3.clone().bind(g)).bind(h);
+        let v2 = test3.bind(|a| (g(a).bind(h)));
         assert_eq!((v1.0)(37), (v2.0)(37));
         assert_eq!((v1.1)(41), (v2.1)(41));
 
@@ -559,14 +567,14 @@ mod free_monad_tests{
             FreeConti::Free(m) => {
                 match (m.0)(4){
                     FreeConti::Pure(v) => assert_eq!(v, 8),
-                    _ => unreachable!()
+                    FreeConti::Free(_) => unreachable!()
                 }
                 match (m.1)(4){
                     FreeConti::Pure(v) => assert_eq!(v, 9),
-                    _ => unreachable!()
+                    FreeConti::Free(_) => unreachable!()
                 }
             },
-            _ => unreachable!()
+            FreeConti::Pure(_) => unreachable!()
         }
     }
 
@@ -580,27 +588,27 @@ mod free_monad_tests{
 
     #[test]
     fn test_fmap_lifetime(){
-        let c = Conti(Rc::new(|x : u32| (x as i32)*3+2), Rc::new(|x| ((x as i32)+2)*5));
-        let f = FreeConti::lift_f(c);
-        let f = f.fmap(|x : i32| (x as f32)*0.25f32);
-        match f {
+        let functor = Conti(Rc::new(|x : u32| i32::try_from(x).unwrap()*3+2), Rc::new(|x| (i32::try_from(x).unwrap()+2)*5));
+        let free_monad = FreeConti::lift_f(functor);
+        let free_monad = free_monad.fmap(|x : i32| f64::from(x)*0.25f64);
+        match free_monad {
             FreeConti::Free(f) => {
-                let l = (f.0)(7);
-                match l {
+                let left = (f.0)(7);
+                match left {
                     FreeConti::Pure(v) => {
-                        assert_eq!(v, 5.75f32);
+                        assert_nearly_equal!(v, 5.75f64, f64::EPSILON);
                     },
-                    _ => unreachable!()
+                    FreeConti::Free(_) => unreachable!()
                 }
-                let r = (f.1)(7);
-                match r {
+                let right = (f.1)(7);
+                match right {
                     FreeConti::Pure(v) => {
-                        assert_eq!(v, 11.25f32);
+                        assert_nearly_equal!(v, 11.25f64, f64::EPSILON);
                     },
-                    _ => unreachable!()
+                    FreeConti::Free(_) => unreachable!()
                 }
             },
-            _ => unreachable!()
+            FreeConti::Pure(_) => unreachable!()
         }
     }
 
@@ -615,101 +623,101 @@ mod free_monad_tests{
 
     #[test]
     fn test_bind_lifetime(){
-        let c = Conti(Rc::new(|x : u32| (x as i32)*3+2), Rc::new(|x| ((x as i32)+2)*5));
-        let f = FreeConti::lift_f(c);
-        let f = f.bind(|y| {
-            let z = y.clone();
-            FreeConti::lift_f(Conti(Rc::new(move |x| (x as f32)*0.25f32 + (y as f32)), Rc::new(move |x| (x as f32) * 0.5f32 - (z as f32))))
+        let functor = Conti(Rc::new(|x : u32| i32::try_from(x).unwrap()*3+2), Rc::new(|x| (i32::try_from(x).unwrap()+2)*5));
+        let free_monad = FreeConti::lift_f(functor);
+        let free_monad = free_monad.bind(|y| {
+            let z = y;
+            FreeConti::lift_f(Conti(Rc::new(move |x| f64::from(x)*0.25f64 + f64::from(y)), Rc::new(move |x| f64::from(x) * 0.5f64 - f64::from(z))))
         });
-        match f {
+        match free_monad {
             FreeConti::Free(f) => {
-                let l = (f.0)(4);
-                match l {
+                let left = (f.0)(4);
+                match left {
                     FreeConti::Free(f) => {
                         //14i32
-                        let l = (f.0)(5);
-                        match l {
-                            FreeConti::Pure(v) => assert_eq!(v, 15.25f32),
+                        let left = (f.0)(5);
+                        match left {
+                            FreeConti::Pure(v) => assert_nearly_equal!(v, 15.25f64, f64::EPSILON),
                             FreeConti::Free(_) => unreachable!(),
                         }
-                        let r = (f.1)(5);
-                        match r{
-                            FreeConti::Pure(v) => assert_eq!(v, -11.5f32),
+                        let right = (f.1)(5);
+                        match right{
+                            FreeConti::Pure(v) => assert_nearly_equal!(v, -11.5f64, f64::EPSILON),
                             FreeConti::Free(_) => unreachable!(),
                         }
                     },
                     FreeConti::Pure(_) => unreachable!(),
                 }
-                let r = (f.1)(4);
-                match r {
+                let right = (f.1)(4);
+                match right {
                     FreeConti::Free(f) => {
                         //30i32
-                        let l = (f.0)(5);
-                        match l {
-                            FreeConti::Pure(v) => assert_eq!(v, 31.25f32),
+                        let left = (f.0)(5);
+                        match left {
+                            FreeConti::Pure(v) => assert_nearly_equal!(v, 31.25f64, f64::EPSILON),
                             FreeConti::Free(_) => unreachable!(),
                         }
-                        let r = (f.1)(5);
-                        match r {
-                            FreeConti::Pure(v) => assert_eq!(v, -27.5f32),
+                        let right = (f.1)(5);
+                        match right {
+                            FreeConti::Pure(v) => assert_nearly_equal!(v, -27.5f64, f64::EPSILON),
                             FreeConti::Free(_) => unreachable!(),
                         }
                     },
                     FreeConti::Pure(_) => unreachable!(),
                 }
             },
-            _ => unreachable!()
+            FreeConti::Pure(_) => unreachable!()
         }
     }
 
     #[test]
     fn test_apply_lifetime(){
         //oh, god, please no.
-        let m = FreeConti::lift_f(Conti(Rc::new(|x : u32| (x as i32)*3+2), Rc::new(|x| ((x as i32)+2)*5)));
-        let f = FreeConti::lift_f(Conti(Rc::new(|x : u32| -> ApplyFn<i32,f32> {
-            (move |y : i32| (y + (x as i32)) as f32).into()
+        let free_monad_input = FreeConti::lift_f(Conti(Rc::new(|x : u32| i32::try_from(x).unwrap()*3+2), Rc::new(|x| (i32::try_from(x).unwrap()+2)*5)));
+        let functions = FreeConti::lift_f(Conti(Rc::new(|x : u32| -> ApplyFn<i32,f64> {
+            (move |y : i32| f64::from(y + i32::try_from(x).unwrap())).into()
         }), Rc::new(|x : u32| {
-            (move |y : i32| (y*(x as i32)) as f32).into()
+            (move |y : i32| f64::from(y*i32::try_from(x).unwrap())).into()
         })));
         //make it stop!
-        let m = m.apply(f);
+        let free_monad = free_monad_input.apply(functions);
         
-        match m {
+        match free_monad {
             FreeConti::Free(m) => {
-                let l = (m.0)(5u32);
-                match l {
+                let left = (m.0)(5u32);
+                match left {
                     FreeConti::Free(m) => {
-                        let l = (m.0)(7u32);
-                        match l {
-                            FreeConti::Pure(v) => assert_eq!(v,28f32),
+                        let left = (m.0)(7u32);
+                        match left {
+                            FreeConti::Pure(v) => assert_nearly_equal!(v,28f64,f64::EPSILON),
                             FreeConti::Free(_) => unreachable!(),
                         }
-                        let r = (m.1)(7u32);
-                        match r {
-                            FreeConti::Pure(v) => assert_eq!(v,50f32),
+                        let right = (m.1)(7u32);
+                        match right {
+                            FreeConti::Pure(v) => assert_nearly_equal!(v,50f64, f64::EPSILON),
                             FreeConti::Free(_) => unreachable!(),
                         }
                     },
                     FreeConti::Pure(_) => unreachable!(),
                 }
-                let r = (m.1)(5u32);
-                match r {
+                let right = (m.1)(5u32);
+                match right {
                     FreeConti::Free(m) => {
-                        let l = (m.0)(7u32);
-                        match l {
-                            FreeConti::Pure(v) => assert_eq!(v,(5f32*23f32)),
+                        let left = (m.0)(7u32);
+                        match left {
+                            FreeConti::Pure(v) => assert_nearly_equal!(v,5f64*23f64, f64::EPSILON),
                             FreeConti::Free(_) => unreachable!(),
                         }
-                        let r = (m.1)(7u32);
-                        match r {
-                            FreeConti::Pure(v) => assert_eq!(v, 5f32*45f32),
+                        let right = (m.1)(7u32);
+                        match right {
+                            FreeConti::Pure(v) => assert_nearly_equal!(v, 5f64*45f64, f64::EPSILON),
                             FreeConti::Free(_) => unreachable!(),
                         }
                     },
                     FreeConti::Pure(_) => unreachable!(),
                 }
             },
-            _ => unreachable!()
+            FreeConti::Pure(_) => unreachable!()
         }
         //let's never speak of this again.
     }

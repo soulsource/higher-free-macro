@@ -1,3 +1,5 @@
+#![deny(clippy::pedantic)]
+#![deny(clippy::all)]
 //! A trivial test functor. Not holding any data, so this is basically just a linked list of free-nodes.
 use higher_free_macro::free;
 use higher::{Functor, Bind, Apply};
@@ -24,16 +26,16 @@ fn test_trivial_functor() {
                                 TrivialFunctor(f) => {
                                     match f{
                                         TrivialFreeMonad::Pure(x) => assert_eq!(x, 37*6),
-                                        _ => unreachable!()
+                                        TrivialFreeMonad::Free(_) => unreachable!()
                                     }
                                 }
                             }
                         },
-                        _ => unreachable!()
+                        TrivialFreeMonad::Pure(_) => unreachable!()
                     }
                 }
             }
         }
-        _ => unreachable!()
+        TrivialFreeMonad::Pure(_) => unreachable!()
     }
 }

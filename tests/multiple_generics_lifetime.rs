@@ -1,3 +1,5 @@
+#![deny(clippy::pedantic)]
+#![deny(clippy::all)]
 //! Tests if multiple generic parameters work, if the return value's lifetime depends on the mapping function lifetime.
 
 use std::rc::Rc;
@@ -24,10 +26,10 @@ free!(<'xx>, FreeTest<'xx,'yy,AA,BB>, TestFunctor<'xx, 'yy, FreeTest<'xx, 'yy, A
 
 #[test]
 fn test_lifetime_multiple_generics(){
-    let m = FreeTest::lift_f(TestFunctor{ data : &"Listening to NSP while writing this.", next : Rc::new(|x| (x as f32)*0.5f32)});
-    let f = FreeTest::Pure(|x : f32| -> bool {x > 0.7f32} ).fmap(Into::into);
-    let m = m.apply(f);
-    match m {
+    let free_monad = FreeTest::lift_f(TestFunctor{ data : &"Listening to NSP while writing this.", next : Rc::new(|x| f64::from(x)*0.5f64)});
+    let functions = FreeTest::Pure(|x : f64| -> bool {x > 0.7f64} ).fmap(Into::into);
+    let free_monad_after_apply = free_monad.apply(functions);
+    match free_monad_after_apply {
         FreeTest::Free(m) => {
             assert_eq!(m.data, &"Listening to NSP while writing this.");
             let x = m.next.clone();
@@ -43,24 +45,31 @@ fn test_lifetime_multiple_generics(){
                 FreeTest::Free(_) => unreachable!(),
             }
         },
-        _ => unreachable!()
+        FreeTest::Pure(_) => unreachable!()
     }
+}
+
+//just to appease clippy without disabling the lint....
+macro_rules! assert_nearly_equal {
+    ($a:expr, $b:expr, $c:expr) => {
+        assert!((($a)-($b)).abs() < $c)
+    };
 }
 
 #[test]
 fn test_lifetime_multiple_generics_bind(){
-    let m = FreeTest::lift_f(TestFunctor{ data : &"Listening to Soilwork while writing this.", next : Rc::new(|x| (x as f32)*0.5f32)});
-    let m = m.bind(|x : f32| -> FreeTest<_,_> {
+    let m = FreeTest::lift_f(TestFunctor{ data : &"Listening to Soilwork while writing this.", next : Rc::new(|x| f64::from(x)*0.5f64)});
+    let m = m.bind(|x : f64| -> FreeTest<_,_> {
         if x < 0.0 {
-            FreeTest::Pure(x.abs().floor() as u32)
+            FreeTest::Pure(x.abs().floor())
         } else {
-            FreeTest::lift_f(TestFunctor{data : &"Now it's Little Big.", next : Rc::new(move |y| (y as u32) + (x.ceil() as u32))})
+            FreeTest::lift_f(TestFunctor{data : &"Now it's Little Big.", next : Rc::new(move |y| f64::from(y) + x.ceil())})
         }});
     match m{
         FreeTest::Free(m) => {
             assert_eq!(m.data, &"Listening to Soilwork while writing this.");
             match (m.next)(-3){
-                FreeTest::Pure(v) => assert_eq!(v, 1),
+                FreeTest::Pure(v) => assert_nearly_equal!(v, 1f64, f64::EPSILON),
                 FreeTest::Free(_) => unreachable!(),
             }
             match (m.next)(3){
@@ -68,14 +77,12 @@ fn test_lifetime_multiple_generics_bind(){
                 FreeTest::Free(v) => {
                     assert_eq!(v.data, &"Now it's Little Big.");
                     match (v.next)(5) {
-                        FreeTest::Pure(v) => {
-                            assert_eq!(v, 7)
-                        },
+                        FreeTest::Pure(v) => assert_nearly_equal!(v, 7f64, f64::EPSILON),
                         FreeTest::Free(_) => unreachable!(),
                     }
                 },
             }
         },
-        _ => unreachable!()
+        FreeTest::Pure(_) => unreachable!()
     }
 }

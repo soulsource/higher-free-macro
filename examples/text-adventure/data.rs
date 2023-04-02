@@ -83,19 +83,13 @@ pub enum Item{
 impl Item {
     fn price(self) ->  usize {
         match self {
-            Item::SausageRoll => 300,
-            Item::Pickles => 250,
-            Item::Milk => 125,
-            Item::Yoghurt => 125,
+            Item::SausageRoll | Item::FishSandwich | Item::Shots => 300,
+            Item::Pickles | Item::Pulp => 250,
+            Item::Milk | Item::Yoghurt | Item::Beer => 125,
             Item::Cheese => 750,
             Item::CatFood => 2500,
-            Item::Beer => 125,
             Item::ToiletPaper => 500,
-            Item::FishSandwich => 300,
             Item::ChewingGum => 100,
-            Item::Shots => 300,
-            Item::Pulp => 250,
-            
         }
     }
     pub fn description(self) -> &'static str {
@@ -112,7 +106,6 @@ impl Item {
             Item::ChewingGum => "A pack of chewing gum, costing €1.00",
             Item::Shots => "A shot of a sad excuse for whisky, costing €3.00",
             Item::Pulp => "A pulp novel called \"Aliens ate my trashbin\", which should not cost the €2.50 it does",
-            
         }
     }
 }
@@ -131,15 +124,9 @@ impl Location{
 
 //In a real project I would probably aim to make this Copy as well, especially if it's as small as this.
 //I left it as Clone intentionally, to illustrate how one can work around the limitation of it not being Copy.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Inventory {
     pub items : Vec<Item>,
-}
-
-impl Default for Inventory{
-    fn default() -> Self {
-        Self { items: Default::default() }
-    }
 }
 
 impl Inventory{
@@ -151,7 +138,7 @@ impl Inventory{
         if self.items.len() < 3 {
             let mut items = self.items;
             items.push(item); //am I the only one that hates that push doesn't return the updated vec?
-            Ok(Inventory{items, ..self})
+            Ok(Inventory{items})
         } else {
             Err(self)
         }
@@ -170,7 +157,7 @@ impl Inventory{
         "€10.00" //It doesn't change. Can as well be a constant.
     }
     pub fn total_price(&self) -> usize {
-        self.items.iter().cloned().map(Item::price).sum::<usize>()
+        self.items.iter().copied().map(Item::price).sum::<usize>()
     }
     pub fn can_afford(&self) -> bool {
         self.total_price() <= 1000_usize

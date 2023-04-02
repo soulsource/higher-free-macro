@@ -1,3 +1,5 @@
+#![deny(clippy::pedantic)]
+#![deny(clippy::all)]
 //! Tests if a trivial functor, which's lifetime depends on the mapping function, works.
 use std::rc::Rc;
 use higher::{Functor, Bind};
@@ -22,8 +24,8 @@ free!(<'a>, FreeTriv<'a,A,B>, TrivWithLifetime<'a,FreeTriv<'a,A,B>,B>);
 
 #[test]
 fn test_trivial_with_lifetime(){
-    let f = FreeTriv::lift_f(TrivWithLifetime{next : Rc::new(|x : i32| x.abs() as u32)});
-    let f = f.bind(|x| FreeTriv::Pure(x));
+    let f = FreeTriv::lift_f(TrivWithLifetime{next : Rc::new(i32::unsigned_abs)});
+    let f = f.bind(FreeTriv::Pure);
     match f {
         FreeTriv::Free(f) => {
             let n = (f.next)(-4);
@@ -32,6 +34,6 @@ fn test_trivial_with_lifetime(){
                 FreeTriv::Free(_) => unreachable!(),
             }
         },
-        _ => unreachable!()
+        FreeTriv::Pure(_) => unreachable!()
     }
 }

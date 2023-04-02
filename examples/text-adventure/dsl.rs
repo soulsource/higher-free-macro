@@ -5,7 +5,7 @@ use std::{rc::Rc, borrow::Cow};
 use higher_free_macro::free;
 use std::convert::identity;
 use higher::Functor;
-use super::data::*;
+use super::data::{Location, Mood, Speaker};
 
 #[derive(Clone)]
 pub enum SausageRoll<'a, 's,A>{

@@ -11,23 +11,23 @@ pub fn run<'a, 's:'a>(mut game : FreeSausageRoll<'a, 's, ()>) -> std::io::Result
     while let FreeSausageRoll::Free(command) = game { 
         game = match *command {
             crate::dsl::SausageRoll::SayDialogueLine { speaker, text, mood, next } => {
-                println!("{} says: \"{}\" with {} on their face.", speaker.text_description(), text, mood.text_description());
+                println!("{} says: \"{text}\" with {} on their face.", speaker.text_description(), mood.text_description());
                 next
             },
             crate::dsl::SausageRoll::GivePlayerOptions { options, next } => 
             {
                 println!("Your options are:");
                 for (id, option) in options.iter().enumerate().map(|(i,o)| (i+1,o)){
-                    println!("{}: {}", id, option);
+                    println!("{id}: {option}");
                 }
 
                 let mut input = String::new();
                 let mut chosen;
-                while let None = {
+                while {
                     input.clear();
                     std::io::stdin().read_line(&mut input)?;
                     chosen = input.trim().parse().ok().filter(|o : &usize| *o > 0 && *o <= options.len());
-                    chosen
+                    chosen.is_none()
                 } {
                     println!("Invalid choice. Please select one of the options given above.");
                 }
@@ -39,7 +39,7 @@ pub fn run<'a, 's:'a>(mut game : FreeSausageRoll<'a, 's, ()>) -> std::io::Result
                 next
             },
             crate::dsl::SausageRoll::Exposition { text, next } => {
-                println!("{}", text);
+                println!("{text}");
                 next
             },
         };
