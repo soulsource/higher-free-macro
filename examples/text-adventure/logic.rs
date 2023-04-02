@@ -4,6 +4,7 @@
 use std::borrow::Cow;
 
 use higher::{run, Functor, Pure, Bind};
+use super::data::*;
 use super::dsl::*;
 
 //Haskell has a when function, and it's nice. Sooo, copy that.
@@ -77,6 +78,7 @@ fn handle_rooms<'a,'s:'a>(room: Location, inventory : Inventory) -> FreeSausageR
     run!{
         c <= handle_room(room, inventory);
         if c.0 != Location::Entrance {
+            //If this were an actual game, we could put a save-point here. At this location the next room to handle is just determined by room and inventory.
             handle_rooms(c.0, c.1)
         } else {
             run!{
@@ -151,7 +153,7 @@ fn handle_shelves<'a, 's: 'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, 
                 let inventory = inventory.clone();
                 run!{
                     check_inventory(inventory.clone());
-                    handle_refrigerators(inventory.clone())
+                    handle_shelves(inventory.clone())
                 }
             }
             4 => { run!{
@@ -177,7 +179,7 @@ fn handle_deli<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (Loca
                 let inventory = inventory.clone();
                 run!{
                     check_inventory(inventory.clone());
-                    handle_refrigerators(inventory.clone())
+                    handle_deli(inventory.clone())
                 }
             },
             3 => {
@@ -207,7 +209,12 @@ fn handle_checkout<'a,'s:'a>(inventory : Inventory) -> FreeSausageRoll<'a, 's, (
                 run!{
                     r <= try_pay(inventory.clone());
                     match r {
-                        Ok(inventory) => FreeSausageRoll::pure((Location::Entrance, inventory.clone())),
+                        Ok(inventory) => {
+                            run!{
+                                exposition("You leave the supermarket. Your partner is already waiting outside.");
+                                FreeSausageRoll::pure((Location::Entrance, inventory.clone()))
+                            }
+                        },
                         Err(inventory) => handle_checkout(inventory.clone()),
                     }
                 }
