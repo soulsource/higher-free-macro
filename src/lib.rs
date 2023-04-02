@@ -59,7 +59,8 @@
 //! There is work ongoing to [add explicit clone support to higher](https://github.com/bodil/higher/issues/6) though, so this might no longer be an issue with
 //! later higher versions.
 
-#[doc(hidden)] //that this is re-exported is an implementation detail. Users should import directly from higher imho.
+#[doc(hidden)]
+//that this is re-exported is an implementation detail. Users should import directly from higher imho.
 pub extern crate higher;
 
 /// The macro that generates a Free [`Monad`][higher::Monad] type for a given [`Functor`][higher::Functor].
@@ -746,14 +747,14 @@ mod free_monad_tests {
                         let left = (m.0)(7u32);
                         match left {
                             FreeConti::Pure(v) => {
-                                assert_nearly_equal!(v, 5f64 * 23f64, f64::EPSILON)
+                                assert_nearly_equal!(v, 5f64 * 23f64, f64::EPSILON);
                             }
                             FreeConti::Free(_) => unreachable!(),
                         }
                         let right = (m.1)(7u32);
                         match right {
                             FreeConti::Pure(v) => {
-                                assert_nearly_equal!(v, 5f64 * 45f64, f64::EPSILON)
+                                assert_nearly_equal!(v, 5f64 * 45f64, f64::EPSILON);
                             }
                             FreeConti::Free(_) => unreachable!(),
                         }

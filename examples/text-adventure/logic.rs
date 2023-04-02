@@ -217,7 +217,12 @@ fn handle_checkout<'a, 's: 'a>(
             0 => { FreeSausageRoll::pure((Location::Shelves, inventory.clone())) },
             1 => {
                 run!{
-                    r <= try_pay(inventory.clone());
+                    r <= if inventory.items.is_empty() {
+                        let inventory = inventory.clone();
+                        exposition("You didn't take anything in the store, so you just walk past the cashier.").bind(move |_| FreeSausageRoll::pure(Ok(inventory.clone()))) as FreeSausageRoll<Result<Inventory, Inventory>>
+                    } else {
+                        try_pay(inventory.clone())
+                    };
                     match r {
                         Ok(inventory) => {
                             run!{
