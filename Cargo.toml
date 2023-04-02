@@ -7,7 +7,7 @@ rust-version = "1.66.1"
 description = "A macro that creates a (naive) Free Monad type based on a user-supplied Functor. It uses the traits from the \"higher\" crate. This macro is a port of the Control.Monad.Free part of the \"free\" Haskell package by Edward Kmett."
 repository = "https://github.com/soulsource/higher-free-macro"
 license = "MPL-2.0+"
-keywords = ["functor", "applicative", "monad", "category-theory", "haskell", "free-monad"]
+keywords = ["functor", "monad", "category-theory", "haskell", "free-monad"]
 categories = ["mathematics", "data-structures"]
 
 [dependencies]
