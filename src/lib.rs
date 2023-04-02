@@ -25,13 +25,16 @@
 //! 
 //! # How to use the macro?
 //! 
-//! For details, please see the [free] macro directly. In short, the syntax is either `free!(FreeMonadTypeName<'a, A>, FunctorItsBasedOn<FreeMonadTypeName<'a, A>>)`,
+//! For details, please see the documentation of the [free] macro.
+//! In short, the syntax is either `free!(FreeMonadTypeName<'a, A>, FunctorItsBasedOn<FreeMonadTypeName<'a, A>>)`,
 //! or, if the lifetime of the Free Monad depends on the lifetime of the function passed to the Functor's fmap function,
 //! `free!(<'a>, FreeMonadTypeName<'a,A>, FunctorItsBasedOn<'a,FreeMonadTypeName<'a,A>>)`, where `'a` is the affected lifetime.
 //! 
 //! # Examples
-//! Please check the "tests" folder in the project's repo. While it currently just contains some trivial test cases, it will be extended over time to
-//! contain more involved examples.
+//! The project's repository contains a folder named "examples", which at the moment contains a tiny text adventure that shows how such a game
+//! could be implemented with Free Monads. The example highlights both, features and (current) limitations of Free Monads in Rust.
+//! 
+//! In addition, there is the "tests" folder, which contains integration tests, that show the syntax of the `free!()` macro in action.
 //! 
 //! # Why a Macro?
 //! Until [non-lifetime binders](https://github.com/rust-lang/rust/issues/108185) become stable, this seems to be the easiest way.
@@ -44,6 +47,10 @@
 //! # A word of warning:
 //! This crate should be considered a proof-of-concept. Its memory complexity is horrendous, and the performance of the Free Monad's [`Apply`][higher::Apply]
 //! implementation can only be described as abysmal due to its reliance on deep copies.
+//! In addition, the desugaring of do-notation currently (with higher-0.2) only works well with return types that are [`Copy`].
+//! If those types are big, that might be a further performance bottleneck.
+//! There is work ongoing to [add explicit clone support to higher](https://github.com/bodil/higher/issues/6) though, so this might no longer be an issue with
+//! later higher versions.
 
 pub extern crate higher;
 
