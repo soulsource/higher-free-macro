@@ -3,7 +3,7 @@ This is a proof-of-concept. Please do not use this for production code, unless y
 There probably are tons of bugs. Pull requests are more than welcome.
 
 # Description
-This is a simple port of Haskell's [Control.Monad.Free](https://hackage.haskell.org/package/free/docs/Control-Monad-Free.html) package to Rust, using the traits from [higher](https://crates.io/crates/higher).
+This is a simple port of parts of Haskell's [Control.Monad.Free](https://hackage.haskell.org/package/free/docs/Control-Monad-Free.html) package to Rust, using the traits from [higher](https://crates.io/crates/higher).
 This crate uses macros to generate a unique Free Monad type for each user-supplied Functor.
 
 # Usage
@@ -152,4 +152,10 @@ fn main() {
 The "examples/text-adventure" folder in the source repo contains a (very) short text-adventure to illustrate the usage of a Free Monads as an embedded Domain Specific Language. It also shows some potential show-stoppers one should be aware of when creating a Free Monad based eDSL.
 
 # A note about the origin of this code
-The work on this project started at stillalive studios. The original goal was to learn about potential applications of Free Monads in game development, but this project has meanwhile outgrown that original plan, and has become a full proof-of-concept implementation for Free Monads in Rust.
+The work on this project started at stillalive studios. The original goal was to learn about potential applications of Free Monads in game development, but this project has meanwhile outgrown that original plan, and has become a full proof-of-concept implementation for Free Monads in Rust, mainly developed by me (Andreas Grois) in my spare time.
+
+# License and Copyright
+Copyright (c) 2023 Andreas Grois and stillalive studios GmbH. All rights reserved.
+
+This software is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL
+was not distributed with this file, You can obtain one at <http://mozilla.org/MPL/2.0/>.
