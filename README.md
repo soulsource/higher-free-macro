@@ -1,3 +1,7 @@
+# MOVED
+
+This repo is no longer updated. You can find the current version at [https://git.grois.info/higher-free-macro/](https://git.grois.info/higher-free-macro/).
+
 # Disclaimer
 This is a proof-of-concept. Please do not use this for production code, unless you do a careful review first.
 There probably are tons of bugs. Pull requests are more than welcome.
